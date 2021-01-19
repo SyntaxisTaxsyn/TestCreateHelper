@@ -1,0 +1,1 @@
+﻿This file exists to force the compiler to create the folder in the debug output directory

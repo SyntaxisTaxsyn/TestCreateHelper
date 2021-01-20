@@ -796,8 +796,51 @@ Public Class Form1
                 Throw New Exception("Oops, not handled yet, get yer finger oot!")
             Case False
                 Select Case ConnectionCount
+                    Case 0
+                        ' Do nothing in here, this object has no connections
                     Case 1
-                        Throw New Exception("Oops, not handled yet, get yer finger oot!")
+
+                        For SpecialCases = 1 To 2
+                            Call GenerateXMLObjectWithoutConnections(MainObjectList,
+                                                                 ConnectionFileListLeft,
+                                                                 ConnectionFileListRight,
+                                                                 ConnectionFileCSV,
+                                                                 TestCount,
+                                                                 ValuePairList,
+                                                                 FirstConnectionFound,
+                                                                 OType)
+                            Select Case SpecialCases
+                                Case 1 ' Left no connections, right defined
+                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
+                                    ' Dont add the left here as its missing in this case
+
+                                    ' Add test case to the CSV file
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                            "nothing",
+                                                                                            "defined",
+                                                                                            TestCount))
+                                Case 2 ' right no connections, left defined
+                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
+                                    ' Dont add the right here as its missing in this case
+                                    ' Add test case to the CSV file
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                            "defined",
+                                                                                            "nothing",
+                                                                                            TestCount))
+                            End Select
+
+                            ' Close off this XML object
+                            If OType = ECloseType.Complex Then
+                                ' Requires complex object closure
+                                ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            End If
+
+                            TestCount += 1
+
+                        Next
+
+
                     Case Else
                         ' More than 1 connection so generate the usual test cases
 

@@ -92,3 +92,5 @@ image,blink,FALSE,TRUE
 ,captionOnBorder,FALSE,TRUE
 ,expression,exp,exp1
 ,strikethrough,FALSE,TRUE
+,closeValue,0,1
+,writeOnClose,TRUE,FALSE

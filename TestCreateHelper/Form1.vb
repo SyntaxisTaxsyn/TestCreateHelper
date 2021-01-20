@@ -1,5 +1,6 @@
 ﻿Imports System.IO
 Imports System.Reflection
+Imports System.Linq
 Public Class Form1
 
     Public STR_PathFile As String = ""
@@ -768,6 +769,120 @@ Public Class Form1
             End If
         Next
 
+        ' Handle connection list special cases
+        ' Count number of connections present in sublist
+        ' Also check if any of the connections has an optional expression
+        Dim ConnectionCount As Integer = 0
+        Dim HasOptionalExpression As Boolean = False
+        For Each itm As subparam In MainObjectList.sList.lSubParamList
+            If itm.type = TypeConstants.connection Then
+                ConnectionCount += 1
+            End If
+            For Each subitm As Param In itm.subParList
+                If subitm.sProperty = TypeConstants.optionalExpression Then
+                    HasOptionalExpression = True
+                End If
+            Next
+        Next
+
+        Dim SpecialCaseMessage As String = ""
+        If ConnectionCount > 0 Then
+            SpecialCaseMessage = InputBox("Enter the name of the object type as it will appear" & vbCrLf &
+                                          "in the test CSV for connection count mismatch", "Special case message string req", "")
+        End If
+
+        Select Case HasOptionalExpression
+            Case True
+                Throw New Exception("Oops, not handled yet, get yer finger oot!")
+            Case False
+                Select Case ConnectionCount
+                    Case 1
+                        Throw New Exception("Oops, not handled yet, get yer finger oot!")
+                    Case Else
+                        ' More than 1 connection so generate the usual test cases
+
+                        For SpecialCases = 1 To 6
+                            Call GenerateXMLObjectWithoutConnections(MainObjectList,
+                                                                 ConnectionFileListLeft,
+                                                                 ConnectionFileListRight,
+                                                                 ConnectionFileCSV,
+                                                                 TestCount,
+                                                                 ValuePairList,
+                                                                 FirstConnectionFound,
+                                                                 OType)
+                            Select Case SpecialCases
+                                Case 1 ' left no connections - right defined
+                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
+                                    ' Dont add the left here as its missing in this case
+
+                                    ' Add test case to the CSV file
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                            "nothing",
+                                                                                            "defined",
+                                                                                            TestCount))
+
+                                Case 2 ' right no connections - left defined
+                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
+                                    ' Dont add the right here as its missing in this case
+                                    ' Add test case to the CSV file
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                            "defined",
+                                                                                            "nothing",
+                                                                                            TestCount))
+                                Case 3 ' left - right connection count mismatch, 1 conn missing from left
+                                    ' Add entries into both lists but filter 1 parameter each
+                                    Dim LeftParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 2)
+                                    Dim RightParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 1)
+                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 1)
+                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 2)
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial("Connection 0 - expression",
+                                                                                            LeftParStr,
+                                                                                            RightParStr,
+                                                                                            TestCount))
+                                Case 4 ' right - left connection count mismatch, 1 conn missing from right
+                                    ' Add entries into both lists but filter 1 parameter each
+                                    Dim LeftParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 1)
+                                    Dim RightParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 2)
+                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 2)
+                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 1)
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial("Connection 0 - expression",
+                                                                                            LeftParStr,
+                                                                                            RightParStr,
+                                                                                            TestCount))
+                                Case 5 ' left <> right, each side has 1 connection missing but different for each side
+                                    ' Add all to right side, skip 1 on the left
+                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
+                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 1)
+                                    ' Add test case to the CSV file
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                            (ConnectionCount - 1).ToString,
+                                                                                            ConnectionCount.ToString,
+                                                                                            TestCount))
+                                Case 6 ' right <> left, each side has 1 connection missing but different for each side
+                                    ' Add all to left side, skip 1 on the right
+                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
+                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 1)
+                                    ' Add test case to the CSV file
+                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                            ConnectionCount.ToString,
+                                                                                            (ConnectionCount - 1).ToString,
+                                                                                            TestCount))
+                            End Select
+
+                            ' Close off this XML object
+                            If OType = ECloseType.Complex Then
+                                ' Requires complex object closure
+                                ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            End If
+
+                            TestCount += 1
+
+                        Next
+
+                End Select
+        End Select
+
         ' Close off the files with the footer
         For Each itm As String In FooterList
             ConnectionFileListLeft.Add(itm)
@@ -793,6 +908,135 @@ Public Class Form1
 
     End Sub
 
+    Public Function GetTestCaseValueForConnectionBySubparam(ByRef MainObjectList As ParamList, ByRef ConnectionNo As Integer) As String
+
+        Dim FilterCount As Integer = 1
+
+        For Each itm As subparam In MainObjectList.sList.lSubParamList.Where _
+            (Function(x) x.type = TypeConstants.connection)
+            If FilterCount = ConnectionNo Then
+                ' Return only this connection 
+                Return itm.subParList.Item(1).sValue
+            End If
+            FilterCount += 1
+        Next
+        ' If the code gets here because the return value was not set return a default empty string
+        Return ""
+
+    End Function
+
+    Public Sub AddConnectionsFilterParam(ByRef MainObjectList As ParamList,
+                                          ByRef ConnectionFileList As List(Of String),
+                                          ByRef ValuePairList As List(Of ValuePair),
+                                          ByRef Filter As Integer)
+        Dim FilterCount As Integer = 1
+
+        ' Add the connections header
+        ConnectionFileList.Add(AddWhiteSpace(1, "<connections>"))
+
+        ' Loop through existing connections and add them all
+        For Each itm As subparam In MainObjectList.sList.lSubParamList.Where _
+            (Function(x) x.type = TypeConstants.connection)
+            If Not FilterCount = Filter Then
+                ConnectionFileList.Add(CreateXMLConnectionObjectByDefinition(itm,
+                                                                         EditCase.Left,
+                                                                         2,
+                                                                         0,
+                                                                         ValuePairList,
+                                                                         ObjectTestClass.caption,
+                                                                         ECloseType.Simple))
+            Else
+                ' Do nothing in here, this parameter is being deliberatly skipped to cause a difference
+            End If
+
+            FilterCount += 1
+
+        Next
+
+        ' Close the xml connection object
+        ConnectionFileList.Add(AddWhiteSpace(1, "</connections>"))
+
+    End Sub
+
+    Public Sub AddConnectionsNoParams(ByRef MainObjectList As ParamList, ByRef ConnectionFileList As List(Of String), ByRef ValuePairList As List(Of ValuePair))
+
+        ' Add the connections header
+        ConnectionFileList.Add(AddWhiteSpace(1, "<connections>"))
+
+        ' Loop through existing connections and add them all
+        For Each itm As subparam In MainObjectList.sList.lSubParamList.Where _
+            (Function(x) x.type = TypeConstants.connection)
+            ConnectionFileList.Add(CreateXMLConnectionObjectByDefinition(itm,
+                                                                         EditCase.Left,
+                                                                         2,
+                                                                         0,
+                                                                         ValuePairList,
+                                                                         ObjectTestClass.caption,
+                                                                         ECloseType.Simple))
+        Next
+
+        ' Close the xml connection object
+        ConnectionFileList.Add(AddWhiteSpace(1, "</connections>"))
+
+    End Sub
+
+    Public Sub GenerateXMLObjectWithoutConnections(ByRef MainObjectList As ParamList,
+                                                   ByRef ConnectionFileListLeft As List(Of String),
+                                                   ByRef ConnectionFileListRight As List(Of String),
+                                                   ByRef ConnectionFileCSV As List(Of String),
+                                                   ByRef TestCount As Integer,
+                                                   ByRef ValuePairList As List(Of ValuePair),
+                                                   ByRef FirstConnectionFound As Boolean,
+                                                   ByRef OType As ECloseType)
+
+        ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+        ConnectionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+
+        For Each subp As subparam In MainObjectList.sList.lSubParamList
+            Select Case subp.type
+                Case TypeConstants.caption
+                    ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.caption,
+                                                                                     ECloseType.Simple))
+                    ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.caption,
+                                                                                     ECloseType.Simple))
+
+
+                Case TypeConstants.imageSettings
+
+                    ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.image,
+                                                                                     ECloseType.Simple))
+
+                    ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.image,
+                                                                                     ECloseType.Simple))
+                Case TypeConstants.connection
+                    ' Do nothing here deliberatly because we are going to handle the connection case generation manually outside of this subroutine
+                Case Else
+                    Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+            End Select
+        Next
+
+    End Sub
+
     Public Sub FormatXMLFile(ByRef Flist As List(Of String))
         For a = 0 To Flist.Count - 1
             Flist.Item(a) = Flist.Item(a).Replace("True", "true")
@@ -807,6 +1051,19 @@ Public Class Form1
             Next
         End Using
     End Sub
+
+    Public Function CreateTestCaseByConnectionSpecial(ByRef msg As String,
+                                                      ByRef lval As String,
+                                                      ByRef rval As String,
+                                                      ByRef Tcase As Integer) As String
+        Dim tstr As String = ""
+        Dim LparVal As String = lval
+        Dim RparVal As String = rval
+        Dim ParName As String = msg
+        tstr = Tcase.ToString & "," & ParName & "," & LparVal & "," & RparVal
+        CreateTestCaseByConnectionSpecial = tstr
+
+    End Function
 
     Public Function CreateTestCaseByConnection(ByRef Par As Param,
                                                ByRef Tcase As Integer,
@@ -1372,6 +1629,7 @@ Public Class TypeConstants
     Public Const connection_name As String = "connection name"
     Public Const closingTag As String = "</"
     Public Const connection As String = "connection"
+    Public Const optionalExpression As String = "optionalExpression"
 End Class
 
 Public Enum EditCase

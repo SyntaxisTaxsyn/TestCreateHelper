@@ -5,6 +5,7 @@ Public Class Form1
 
     Public STR_PathFile As String = ""
     Public ValuesList As List(Of ValuePair)
+
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
 
         ' Display File Picker for HMI XML export file
@@ -69,6 +70,10 @@ Public Class Form1
             Dim connectionsPresent As Boolean = False
             Dim connectionLRange As Integer = 0
             Dim connectionRRange As Integer = 0
+            ' Add state handling variables
+            Dim statesPresent As Boolean = False
+            Dim stateLRange As Integer = 0
+            Dim stateRRange As Integer = 0
             ' Process the remaining lines
             For a = 1 To linecount - 1
                 Dim typeIsKnown As Boolean = False
@@ -97,6 +102,15 @@ Public Class Form1
                     type = ""
                     typeIsKnown = True
                 End If
+                ' Add new state type handling here
+                If InStr(tstr(a), "<states>") Then
+                    type = TypeConstants.states
+                    typeIsKnown = True
+                End If
+                If InStr(tstr(a), "<state ") Then
+                    type = TypeConstants.state
+                    typeIsKnown = True
+                End If
                 If Not typeIsKnown Then
                     ' This code will prompt us for any rework required going forward as we encounter new sub types
                     Throw New Exception("Unknown Type Detected, Requires new code to handle" & vbCrLf &
@@ -107,7 +121,7 @@ Public Class Form1
                         ' add a new subobject to the main object and parse the complete caption line as normal
                         Dim newSubObject As subparam = GetSubObjParams(tstr(a))
                         MainObjectList.sList.lSubParamList.Add(newSubObject)
-                        MsgBox("")
+                        'MsgBox("")
                     Case TypeConstants.imageSettings
                         ' add a new subobject to the main object and parse the complete caption line as normal
                         Dim newSubObject As subparam = GetSubObjParams(tstr(a))
@@ -134,6 +148,30 @@ Public Class Form1
                                 MainObjectList.sList.lSubParamList.Add(newSubObject)
                             End If
                         End If
+
+                    Case TypeConstants.state ' Add new case handling for state types
+
+                        If a >= stateLRange And a <= stateRRange Then
+                            Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                            MainObjectList.sList.lSubParamList.Add(newSubObject)
+                        End If
+
+                    Case TypeConstants.states
+                        ' each connection is its own subobject, this needs some special processing
+                        ' find the range of connection entries to process
+                        If statesPresent = False Then
+                            ' determine range first
+                            stateLRange = a + 1 ' miss the current line as it only contains "<connections>" to define subobject group
+                            ' Find the number of connections present
+                            For c = stateLRange To linecount - 1
+                                If InStr(tstr(c), "</states>") > 0 Then
+                                    stateRRange = c - 1
+                                    statesPresent = True
+                                End If
+                            Next
+                        Else
+                        End If
+
                 End Select
             Next
             'MsgBox("")
@@ -208,7 +246,9 @@ Public Class Form1
                     bFoundMatch = False
                     For Each oValPair As ValuePair In ValuePairList
                         If oValPair.name = itm.sProperty Then
-                            bFoundMatch = True
+                            If oValPair.oClass = sublist.type Then ' Added this selector in to ensure that value pairs get matched against classes too
+                                bFoundMatch = True
+                            End If
                         End If
                     Next
                     If Not bFoundMatch Then
@@ -218,7 +258,7 @@ Public Class Form1
                             Case "name" ' none of these cases do anything, they are merely for exception filtering
                             Case Else
 
-                                ExceptionList.Add(itm.sProperty)
+                                ExceptionList.Add(sublist.type & "-" & itm.sProperty)
                         End Select
                     End If
                 Next
@@ -247,6 +287,16 @@ Public Class Form1
         Dim TestCount As Integer = 1
         Dim OType As ECloseType
         Dim FirstConnectionFound As Boolean = False
+        Dim FirstStateFound As Boolean = False
+        Dim FirstCaptionFound As Boolean = False
+        Dim CaptionIndentLevel As Integer = 1
+        Dim StatesClosed As Boolean = False
+        Dim Type_ImageSettings_Exists As Boolean = False
+        Dim Type_Caption_Exists As Boolean = False
+        Dim Type_Connection_Exists As Boolean = False
+        Dim Type_State_Exists As Boolean = False
+        Dim StateCount As Integer = 0
+        Dim CaptionCount As Integer = 0
 
         If MainObjectList.sList IsNot Nothing Then
             OType = ECloseType.Complex
@@ -276,16 +326,22 @@ Public Class Form1
                     For Each subp As subparam In MainObjectList.sList.lSubParamList
                         Select Case subp.type
                             Case TypeConstants.caption
+                                Select Case FirstStateFound
+                                    Case True
+                                        CaptionIndentLevel = 3
+                                    Case False
+                                        CaptionIndentLevel = 1
+                                End Select
                                 MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                  EditCase.Left,
-                                                                                 1,
+                                                                                 CaptionIndentLevel,
                                                                                  TestCount,
                                                                                  ValuePairList,
                                                                                  ObjectTestClass.caption,
                                                                                  ECloseType.Simple))
                                 MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
                                                                                  EditCase.Left,
-                                                                                 1,
+                                                                                 CaptionIndentLevel,
                                                                                  TestCount,
                                                                                  ValuePairList,
                                                                                  ObjectTestClass.caption,
@@ -306,6 +362,14 @@ Public Class Form1
                                                                                  ObjectTestClass.image,
                                                                                  ECloseType.Simple))
                             Case TypeConstants.connection
+                                If FirstStateFound Then
+                                    ' Close off the previous state before starting a connection block
+                                    MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                    MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                    MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                    MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                    StatesClosed = True
+                                End If
                                 If FirstConnectionFound = False Then
                                     ' Add an additional line here for the connection xml configuration on the first time only
                                     MainFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
@@ -326,10 +390,48 @@ Public Class Form1
                                                                                 ValuePairList,
                                                                                 ObjectTestClass.caption,
                                                                                 ECloseType.Simple))
+                            Case TypeConstants.state
+                                If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                    ' if this is a subsequent state found after the first then close off the previous state
+                                    MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                    MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                End If
+                                If FirstStateFound = False Then
+                                    ' Add an additional line here for the connection xml configuration on the first time only
+                                    MainFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                    MainFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                    FirstStateFound = True
+                                End If
+                                MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                 EditCase.Left,
+                                                                                 2,
+                                                                                 TestCount,
+                                                                                 ValuePairList,
+                                                                                 ObjectTestClass.state,
+                                                                                 ECloseType.Complex))
+                                MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                EditCase.Left,
+                                                                                2,
+                                                                                TestCount,
+                                                                                ValuePairList,
+                                                                                ObjectTestClass.state,
+                                                                                ECloseType.Complex))
+
                             Case Else
                                 Throw New Exception("This type behaviour is not defined, please add it manually and try again")
                         End Select
                     Next
+                    If FirstStateFound Then
+                        If Not StatesClosed Then
+                            ' handle the case when no connection block is present and the state blocks need closed
+                            MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                            MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                            MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                            MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                        End If
+                        StatesClosed = False
+                        FirstStateFound = False
+                    End If
                     If FirstConnectionFound Then
                         ' We know at least 1 connection has been defined and so we must close off the connections xml object group
                         ' We do this at the end of the sub group iteration because we know by observation of the ME software
@@ -366,384 +468,105 @@ Public Class Form1
         WriteOutputFile(MainFileCSV, GetPathToLocalFile("Output", FnameVar & "main.csv"))
 #End Region
 
+        ' MsgBox("")
+
 #Region "Image List Generation"
-        ' Generate file content for the main parameter list
-        Dim ImageFileListLeft As List(Of String) = New List(Of String)
-        Dim ImageFileListRight As List(Of String) = New List(Of String)
-        Dim ImageFileCSV As List(Of String) = New List(Of String)
-        TestCount = 1
-        FirstConnectionFound = False
 
-        If MainObjectList.sList IsNot Nothing Then
-            OType = ECloseType.Complex
-        Else
-            OType = ECloseType.Simple
-        End If
-
-        ' Initialise the left and right file lists with the header content
-        For Each itm As String In HeaderList
-            ImageFileListLeft.Add(itm)
-            ImageFileListRight.Add(itm)
-        Next
-
-        ' Initialise the CSV test definition file list
-        ImageFileCSV.Add("Test number,Property,Left,Right")
-
-        For Each sublist As subparam In MainObjectList.sList.lSubParamList
-            If sublist.type = TypeConstants.imageSettings Then
-                ' This object has an imagesettings sub object type so generate an output file for it
-                For Each sparam As Param In sublist.subParList
-                    ' Generate the main objects data with only left cases
-                    ImageFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-                    ImageFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-                    ImageFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.image, TestCount))
-
-                    For Each subp As subparam In MainObjectList.sList.lSubParamList
-                        Select Case subp.type
-                            Case TypeConstants.caption
-                                ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.caption,
-                                                                                 ECloseType.Simple))
-                                ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.caption,
-                                                                                 ECloseType.Simple))
-                            Case TypeConstants.imageSettings
-                                ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                  sparam,
-                                                                                  EditCase.Left,
-                                                                                  1,
-                                                                                  TestCount,
-                                                                                  ValuePairList,
-                                                                                  ObjectTestClass.image,
-                                                                                  ECloseType.Simple))
-
-                                ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                  sparam,
-                                                                                  EditCase.Right,
-                                                                                  1,
-                                                                                  TestCount,
-                                                                                  ValuePairList,
-                                                                                  ObjectTestClass.image,
-                                                                                  ECloseType.Simple))
-                            Case TypeConstants.connection
-                                If FirstConnectionFound = False Then
-                                    ' Add an additional line here for the connection xml configuration on the first time only
-                                    ImageFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
-                                    ImageFileListRight.Add(AddWhiteSpace(1, "<connections>"))
-                                    FirstConnectionFound = True
-                                End If
-                                ImageFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 2,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.caption,
-                                                                                 ECloseType.Simple))
-                                ImageFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                EditCase.Left,
-                                                                                2,
-                                                                                TestCount,
-                                                                                ValuePairList,
-                                                                                ObjectTestClass.caption,
-                                                                                ECloseType.Simple))
-                            Case Else
-                                Throw New Exception("This type behaviour is not defined, please add it manually and try again")
-                        End Select
-                    Next
-                    If FirstConnectionFound Then
-                        ' We know at least 1 connection has been defined and so we must close off the connections xml object group
-                        ' We do this at the end of the sub group iteration because we know by observation of the ME software
-                        ' XML object creation that connections always go at the end
-                        ImageFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
-                        ImageFileListRight.Add(AddWhiteSpace(1, "</connections>"))
-                        FirstConnectionFound = False
-                    End If
-
-                    ' Close off this XML object
-                    If OType = ECloseType.Complex Then
-                        ' Requires complex object closure
-                        ImageFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                        ImageFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                    End If
-                    TestCount += 1
-                Next
+        ' Check if this code block should run
+        For Each itm As subparam In MainObjectList.sList.lSubParamList
+            If itm.type = TypeConstants.imageSettings Then
+                Type_ImageSettings_Exists = True
             End If
         Next
 
-        ' Close off the files with the footer
-        For Each itm As String In FooterList
-            ImageFileListLeft.Add(itm)
-            ImageFileListRight.Add(itm)
-        Next
+        If Type_ImageSettings_Exists Then
+            ' Generate file content for the main parameter list
+            Dim ImageFileListLeft As List(Of String) = New List(Of String)
+            Dim ImageFileListRight As List(Of String) = New List(Of String)
+            Dim ImageFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
 
-        'Format output file contents prior to writing
-        FormatXMLFile(ImageFileListLeft)
-        FormatXMLFile(ImageFileListRight)
-
-        'Dim FnameVar As String = InputBox("Enter Output file name", "")
-
-        WriteOutputFile(ImageFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_image.xml"))
-        WriteOutputFile(ImageFileListRight, GetPathToLocalFile("Output", FnameVar & "R_image.xml"))
-        WriteOutputFile(ImageFileCSV, GetPathToLocalFile("Output", FnameVar & "image.csv"))
-
-#End Region
-
-#Region "Caption List Generation"
-        ' Generate file content for the main parameter list
-        Dim CaptionFileListLeft As List(Of String) = New List(Of String)
-        Dim CaptionFileListRight As List(Of String) = New List(Of String)
-        Dim CaptionFileCSV As List(Of String) = New List(Of String)
-        TestCount = 1
-        FirstConnectionFound = False
-
-        If MainObjectList.sList IsNot Nothing Then
-            OType = ECloseType.Complex
-        Else
-            OType = ECloseType.Simple
-        End If
-
-        ' Initialise the left and right file lists with the header content
-        For Each itm As String In HeaderList
-            CaptionFileListLeft.Add(itm)
-            CaptionFileListRight.Add(itm)
-        Next
-
-        ' Initialise the CSV test definition file list
-        CaptionFileCSV.Add("Test number,Property,Left,Right")
-
-        For Each sublist As subparam In MainObjectList.sList.lSubParamList
-            If sublist.type = TypeConstants.caption Then
-                ' This object has an imagesettings sub object type so generate an output file for it
-                For Each sparam As Param In sublist.subParList
-                    ' Generate the main objects data with only left cases
-                    CaptionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-                    CaptionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-                    CaptionFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.caption, TestCount))
-
-                    For Each subp As subparam In MainObjectList.sList.lSubParamList
-                        Select Case subp.type
-                            Case TypeConstants.caption
-                                CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                  sparam,
-                                                                                  EditCase.Left,
-                                                                                  1,
-                                                                                  TestCount,
-                                                                                  ValuePairList,
-                                                                                  ObjectTestClass.caption,
-                                                                                  ECloseType.Simple))
-
-                                CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                  sparam,
-                                                                                  EditCase.Right,
-                                                                                  1,
-                                                                                  TestCount,
-                                                                                  ValuePairList,
-                                                                                  ObjectTestClass.caption,
-                                                                                  ECloseType.Simple))
-
-
-                            Case TypeConstants.imageSettings
-
-                                CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.image,
-                                                                                 ECloseType.Simple))
-
-                                CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.image,
-                                                                                 ECloseType.Simple))
-                            Case TypeConstants.connection
-                                If FirstConnectionFound = False Then
-                                    ' Add an additional line here for the connection xml configuration on the first time only
-                                    CaptionFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
-                                    CaptionFileListRight.Add(AddWhiteSpace(1, "<connections>"))
-                                    FirstConnectionFound = True
-                                End If
-                                CaptionFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 2,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.caption,
-                                                                                 ECloseType.Simple))
-                                CaptionFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                EditCase.Left,
-                                                                                2,
-                                                                                TestCount,
-                                                                                ValuePairList,
-                                                                                ObjectTestClass.caption,
-                                                                                ECloseType.Simple))
-                            Case Else
-                                Throw New Exception("This type behaviour is not defined, please add it manually and try again")
-                        End Select
-                    Next
-                    If FirstConnectionFound Then
-                        ' We know at least 1 connection has been defined and so we must close off the connections xml object group
-                        ' We do this at the end of the sub group iteration because we know by observation of the ME software
-                        ' XML object creation that connections always go at the end
-                        CaptionFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
-                        CaptionFileListRight.Add(AddWhiteSpace(1, "</connections>"))
-                        FirstConnectionFound = False
-                    End If
-
-                    ' Close off this XML object
-                    If OType = ECloseType.Complex Then
-                        ' Requires complex object closure
-                        CaptionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                        CaptionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                    End If
-                    TestCount += 1
-                Next
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
             End If
-        Next
 
-        ' Close off the files with the footer
-        For Each itm As String In FooterList
-            CaptionFileListLeft.Add(itm)
-            CaptionFileListRight.Add(itm)
-        Next
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                ImageFileListLeft.Add(itm)
+                ImageFileListRight.Add(itm)
+            Next
 
-        'Format output file contents prior to writing
-        FormatXMLFile(CaptionFileListLeft)
-        FormatXMLFile(CaptionFileListRight)
+            ' Initialise the CSV test definition file list
+            ImageFileCSV.Add("Test number,Property,Left,Right")
 
-        'Dim FnameVar As String = InputBox("Enter Output file name", "")
-
-        WriteOutputFile(CaptionFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_caption.xml"))
-        WriteOutputFile(CaptionFileListRight, GetPathToLocalFile("Output", FnameVar & "R_caption.xml"))
-        WriteOutputFile(CaptionFileCSV, GetPathToLocalFile("Output", FnameVar & "caption.csv"))
-
-#End Region
-
-#Region "Connection List Generation"
-        ' Generate file content for the main parameter list
-        Dim ConnectionFileListLeft As List(Of String) = New List(Of String)
-        Dim ConnectionFileListRight As List(Of String) = New List(Of String)
-        Dim ConnectionFileCSV As List(Of String) = New List(Of String)
-        TestCount = 1
-        FirstConnectionFound = False
-
-        If MainObjectList.sList IsNot Nothing Then
-            OType = ECloseType.Complex
-        Else
-            OType = ECloseType.Simple
-        End If
-
-        ' Initialise the left and right file lists with the header content
-        For Each itm As String In HeaderList
-            ConnectionFileListLeft.Add(itm)
-            ConnectionFileListRight.Add(itm)
-        Next
-
-        ' Initialise the CSV test definition file list
-        ConnectionFileCSV.Add("Test number,Property,Left,Right")
-
-        For Each sublist As subparam In MainObjectList.sList.lSubParamList
-            If sublist.type = TypeConstants.connection Then
-                ' This object has an imagesettings sub object type so generate an output file for it
-                For Each sparam As Param In sublist.subParList
-                    If Not sparam.sProperty = "name" Then ' Dont process the name property in the connection as it cant be changed by the user
+            For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                If sublist.type = TypeConstants.imageSettings Then
+                    ' This object has an imagesettings sub object type so generate an output file for it
+                    For Each sparam As Param In sublist.subParList
                         ' Generate the main objects data with only left cases
-                        ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-                        ConnectionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-                        ConnectionFileCSV.Add(CreateTestCaseByConnection(sparam, TestCount, (TestCount - 1)))
+                        ImageFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                        ImageFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                        ImageFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.image, TestCount))
 
                         For Each subp As subparam In MainObjectList.sList.lSubParamList
                             Select Case subp.type
                                 Case TypeConstants.caption
-                                    ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                    ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                      EditCase.Left,
                                                                                      1,
                                                                                      TestCount,
                                                                                      ValuePairList,
                                                                                      ObjectTestClass.caption,
                                                                                      ECloseType.Simple))
-                                    ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                    ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
                                                                                      EditCase.Left,
                                                                                      1,
                                                                                      TestCount,
                                                                                      ValuePairList,
                                                                                      ObjectTestClass.caption,
                                                                                      ECloseType.Simple))
-
-
                                 Case TypeConstants.imageSettings
+                                    ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                      sparam,
+                                                                                      EditCase.Left,
+                                                                                      1,
+                                                                                      TestCount,
+                                                                                      ValuePairList,
+                                                                                      ObjectTestClass.image,
+                                                                                      ECloseType.Simple))
 
-                                    ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                     EditCase.Left,
-                                                                                     1,
-                                                                                     TestCount,
-                                                                                     ValuePairList,
-                                                                                     ObjectTestClass.image,
-                                                                                     ECloseType.Simple))
-
-                                    ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                     EditCase.Left,
-                                                                                     1,
-                                                                                     TestCount,
-                                                                                     ValuePairList,
-                                                                                     ObjectTestClass.image,
-                                                                                     ECloseType.Simple))
+                                    ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                      sparam,
+                                                                                      EditCase.Right,
+                                                                                      1,
+                                                                                      TestCount,
+                                                                                      ValuePairList,
+                                                                                      ObjectTestClass.image,
+                                                                                      ECloseType.Simple))
                                 Case TypeConstants.connection
                                     If FirstConnectionFound = False Then
                                         ' Add an additional line here for the connection xml configuration on the first time only
-                                        ConnectionFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
-                                        ConnectionFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                        ImageFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                        ImageFileListRight.Add(AddWhiteSpace(1, "<connections>"))
                                         FirstConnectionFound = True
                                     End If
-                                    ' in here we need to select the behaviour of the connection XML generation based on 
-                                    ' if this connection matches the current connection selected in the top level for each loop
-                                    If sublist.subParList.Item(1).sValue = subp.subParList.Item(1).sValue Then
-                                        ' This connection matches the current selected connection at the top level so needs its parameters substituted like
-                                        ' The test CSV case
-                                        ConnectionFileListLeft.Add(CreateTestXMLConnectionObjectByDefinition(subp,
-                                                                                     EditCase.Left,
-                                                                                     2,
-                                                                                     TestCount,
-                                                                                     ValuePairList,
-                                                                                     ObjectTestClass.caption,
-                                                                                     ECloseType.Simple,
-                                                                                     ""))
-                                        ConnectionFileListRight.Add(CreateTestXMLConnectionObjectByDefinition(subp,
-                                                                                     EditCase.Left,
-                                                                                     2,
-                                                                                     TestCount,
-                                                                                     ValuePairList,
-                                                                                     ObjectTestClass.caption,
-                                                                                     ECloseType.Simple,
-                                                                                     "s"))
-                                    Else
-                                        ConnectionFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                    ImageFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
                                                                                      EditCase.Left,
                                                                                      2,
                                                                                      TestCount,
                                                                                      ValuePairList,
                                                                                      ObjectTestClass.caption,
                                                                                      ECloseType.Simple))
-                                        ConnectionFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                        EditCase.Left,
-                                                                                        2,
-                                                                                        TestCount,
-                                                                                        ValuePairList,
-                                                                                        ObjectTestClass.caption,
-                                                                                        ECloseType.Simple))
-                                    End If
-
+                                    ImageFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.caption,
+                                                                                    ECloseType.Simple))
                                 Case Else
                                     Throw New Exception("This type behaviour is not defined, please add it manually and try again")
                             End Select
@@ -752,195 +575,902 @@ Public Class Form1
                             ' We know at least 1 connection has been defined and so we must close off the connections xml object group
                             ' We do this at the end of the sub group iteration because we know by observation of the ME software
                             ' XML object creation that connections always go at the end
-                            ConnectionFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
-                            ConnectionFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                            ImageFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                            ImageFileListRight.Add(AddWhiteSpace(1, "</connections>"))
                             FirstConnectionFound = False
                         End If
 
                         ' Close off this XML object
                         If OType = ECloseType.Complex Then
                             ' Requires complex object closure
-                            ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                            ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            ImageFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            ImageFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
                         End If
                         TestCount += 1
-                    End If
-                Next
-            End If
-        Next
-
-        ' Handle connection list special cases
-        ' Count number of connections present in sublist
-        ' Also check if any of the connections has an optional expression
-        Dim ConnectionCount As Integer = 0
-        Dim HasOptionalExpression As Boolean = False
-        For Each itm As subparam In MainObjectList.sList.lSubParamList
-            If itm.type = TypeConstants.connection Then
-                ConnectionCount += 1
-            End If
-            For Each subitm As Param In itm.subParList
-                If subitm.sProperty = TypeConstants.optionalExpression Then
-                    HasOptionalExpression = True
+                    Next
                 End If
             Next
-        Next
 
-        Dim SpecialCaseMessage As String = ""
-        If ConnectionCount > 0 Then
-            SpecialCaseMessage = InputBox("Enter the name of the object type as it will appear" & vbCrLf &
-                                          "in the test CSV for connection count mismatch", "Special case message string req", "")
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                ImageFileListLeft.Add(itm)
+                ImageFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(ImageFileListLeft)
+            FormatXMLFile(ImageFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(ImageFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_image.xml"))
+            WriteOutputFile(ImageFileListRight, GetPathToLocalFile("Output", FnameVar & "R_image.xml"))
+            WriteOutputFile(ImageFileCSV, GetPathToLocalFile("Output", FnameVar & "image.csv"))
         End If
 
-        Select Case HasOptionalExpression
-            Case True
-                Throw New Exception("Oops, not handled yet, get yer finger oot!")
-            Case False
-                Select Case ConnectionCount
-                    Case 0
-                        ' Do nothing in here, this object has no connections
-                    Case 1
+#End Region
 
-                        For SpecialCases = 1 To 2
-                            Call GenerateXMLObjectWithoutConnections(MainObjectList,
-                                                                 ConnectionFileListLeft,
-                                                                 ConnectionFileListRight,
-                                                                 ConnectionFileCSV,
-                                                                 TestCount,
-                                                                 ValuePairList,
-                                                                 FirstConnectionFound,
-                                                                 OType)
-                            Select Case SpecialCases
-                                Case 1 ' Left no connections, right defined
-                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
-                                    ' Dont add the left here as its missing in this case
+#Region "Caption List Generation"
 
-                                    ' Add test case to the CSV file
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
-                                                                                            "nothing",
-                                                                                            "defined",
-                                                                                            TestCount))
-                                Case 2 ' right no connections, left defined
-                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
-                                    ' Dont add the right here as its missing in this case
-                                    ' Add test case to the CSV file
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
-                                                                                            "defined",
-                                                                                            "nothing",
-                                                                                            TestCount))
-                            End Select
-
-                            ' Close off this XML object
-                            If OType = ECloseType.Complex Then
-                                ' Requires complex object closure
-                                ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                                ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                            End If
-
-                            TestCount += 1
-
-                        Next
-
-
-                    Case Else
-                        ' More than 1 connection so generate the usual test cases
-
-                        For SpecialCases = 1 To 6
-                            Call GenerateXMLObjectWithoutConnections(MainObjectList,
-                                                                 ConnectionFileListLeft,
-                                                                 ConnectionFileListRight,
-                                                                 ConnectionFileCSV,
-                                                                 TestCount,
-                                                                 ValuePairList,
-                                                                 FirstConnectionFound,
-                                                                 OType)
-                            Select Case SpecialCases
-                                Case 1 ' left no connections - right defined
-                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
-                                    ' Dont add the left here as its missing in this case
-
-                                    ' Add test case to the CSV file
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
-                                                                                            "nothing",
-                                                                                            "defined",
-                                                                                            TestCount))
-
-                                Case 2 ' right no connections - left defined
-                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
-                                    ' Dont add the right here as its missing in this case
-                                    ' Add test case to the CSV file
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
-                                                                                            "defined",
-                                                                                            "nothing",
-                                                                                            TestCount))
-                                Case 3 ' left - right connection count mismatch, 1 conn missing from left
-                                    ' Add entries into both lists but filter 1 parameter each
-                                    Dim LeftParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 2)
-                                    Dim RightParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 1)
-                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 1)
-                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 2)
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial("Connection 0 - expression",
-                                                                                            LeftParStr,
-                                                                                            RightParStr,
-                                                                                            TestCount))
-                                Case 4 ' right - left connection count mismatch, 1 conn missing from right
-                                    ' Add entries into both lists but filter 1 parameter each
-                                    Dim LeftParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 1)
-                                    Dim RightParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 2)
-                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 2)
-                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 1)
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial("Connection 0 - expression",
-                                                                                            LeftParStr,
-                                                                                            RightParStr,
-                                                                                            TestCount))
-                                Case 5 ' left <> right, each side has 1 connection missing but different for each side
-                                    ' Add all to right side, skip 1 on the left
-                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
-                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 1)
-                                    ' Add test case to the CSV file
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
-                                                                                            (ConnectionCount - 1).ToString,
-                                                                                            ConnectionCount.ToString,
-                                                                                            TestCount))
-                                Case 6 ' right <> left, each side has 1 connection missing but different for each side
-                                    ' Add all to left side, skip 1 on the right
-                                    Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
-                                    Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 1)
-                                    ' Add test case to the CSV file
-                                    ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
-                                                                                            ConnectionCount.ToString,
-                                                                                            (ConnectionCount - 1).ToString,
-                                                                                            TestCount))
-                            End Select
-
-                            ' Close off this XML object
-                            If OType = ECloseType.Complex Then
-                                ' Requires complex object closure
-                                ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                                ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                            End If
-
-                            TestCount += 1
-
-                        Next
-
-                End Select
-        End Select
-
-        ' Close off the files with the footer
-        For Each itm As String In FooterList
-            ConnectionFileListLeft.Add(itm)
-            ConnectionFileListRight.Add(itm)
+        ' Check if this code block should run
+        For Each itm As subparam In MainObjectList.sList.lSubParamList
+            If itm.type = TypeConstants.caption Then
+                Type_Caption_Exists = True
+            End If
         Next
 
-        'Format output file contents prior to writing
-        FormatXMLFile(ConnectionFileListLeft)
-        FormatXMLFile(ConnectionFileListRight)
+        If Type_Caption_Exists Then
+            ' Generate file content for the main parameter list
+            Dim CaptionFileListLeft As List(Of String) = New List(Of String)
+            Dim CaptionFileListRight As List(Of String) = New List(Of String)
+            Dim CaptionFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
+            FirstCaptionFound = False ' Added to ensure only the first caption type gets processed when dealing with mutlistate objects
+            FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
+            StateCount = 0
+            CaptionCount = 0
+            Dim CaptionMask(10) As Boolean
+            Dim StateInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.state)
 
-        'Dim FnameVar As String = InputBox("Enter Output file name", "")
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
 
-        WriteOutputFile(ConnectionFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_connections.xml"))
-        WriteOutputFile(ConnectionFileListRight, GetPathToLocalFile("Output", FnameVar & "R_connections.xml"))
-        WriteOutputFile(ConnectionFileCSV, GetPathToLocalFile("Output", FnameVar & "connections.csv"))
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                CaptionFileListLeft.Add(itm)
+                CaptionFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            CaptionFileCSV.Add("Test number,Property,Left,Right")
+
+            'For Each sublist As subparam In MainObjectList.sList.lSubParamList.Where _
+            '    (Function(x) x.type = TypeConstants.caption)
+            '    ' Linq exp selects the objects by caption, find the first caption, then run through the entire
+            '    ' Object structure again generating the page content
+            '    For Each sparam As Param In sublist.subParList
+
+            '    Next
+            '    Exit For ' this is probably messy but i cant think of another better way to select the first caption object 
+            '    ' and then exit without processing the rest
+            'Next
+
+            ' Set up caption mask
+            Select Case True
+                Case StateInstCount > 3
+                    CaptionMask(0) = True
+                    CaptionMask(1) = True
+                    CaptionMask(3) = True
+                Case StateInstCount > 2
+                    CaptionMask(0) = True
+                    CaptionMask(1) = True
+                    CaptionMask(2) = True
+                Case StateInstCount = 1
+                    CaptionMask(0) = True
+                Case StateInstCount = 2
+                    CaptionMask(0) = True
+                    CaptionMask(1) = True
+                Case StateInstCount = 0
+                    CaptionMask(0) = True
+                Case Else
+                    Throw New Exception("Whoops, it appears you didnt think of everything")
+            End Select
+
+            ' Loop through the test generation process for as many caption test masks are active
+            For Cmask = 0 To 9
+                If CaptionMask(Cmask) Then
+                    For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                        If sublist.type = TypeConstants.caption Then
+                            ' This object has a caption sub object type so generate an output file for it
+                            For Each sparam As Param In sublist.subParList
+                                ' Generate the main objects data with only left cases
+                                CaptionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                CaptionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                'CaptionFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.caption, TestCount))
+
+                                For Each subp As subparam In MainObjectList.sList.lSubParamList
+                                    Select Case subp.type
+                                        Case TypeConstants.caption
+                                            If CaptionCount = Cmask Then ' Select the caption instance count to modify based on the mask
+                                                ' Add test case for this caption only
+                                                Dim Addstr As String = DetermineAddStrByCase(MainObjectList, (StateCount - 1)) ' State number - 1 here because each state clause starts before the caption clause hence the count will +1
+                                                CaptionFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.caption, TestCount, Addstr))
+                                                ' Only substitute params in the first caption object
+                                                CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                              sparam,
+                                                                                              EditCase.Left,
+                                                                                              CaptionIndentLevel,
+                                                                                              TestCount,
+                                                                                              ValuePairList,
+                                                                                              ObjectTestClass.caption,
+                                                                                              ECloseType.Simple))
+
+                                                CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                  sparam,
+                                                                                                  EditCase.Right,
+                                                                                                  CaptionIndentLevel,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.caption,
+                                                                                                  ECloseType.Simple))
+                                                FirstCaptionFound = True
+                                            Else
+                                                ' Add subsequent captions with left case (default) parameters only
+                                                CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                                CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.caption,
+                                                                                                 ECloseType.Simple))
+                                            End If
+                                            CaptionCount += 1
+                                        Case TypeConstants.imageSettings
+
+                                            CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+
+                                            CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+                                        Case TypeConstants.connection
+                                            If FirstStateFound Then
+                                                ' Close off the previous state before starting a connection block
+                                                MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                StatesClosed = True
+                                            End If
+                                            If FirstConnectionFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                CaptionFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                                CaptionFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                                FirstConnectionFound = True
+                                            End If
+                                            CaptionFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             2,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                            CaptionFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                        Case TypeConstants.state
+                                            If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                                ' if this is a subsequent state found after the first then close off the previous state
+                                                CaptionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                CaptionFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            End If
+                                            If FirstStateFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                CaptionFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                                CaptionFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                                FirstStateFound = True
+                                            End If
+                                            CaptionFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.state,
+                                                                                         ECloseType.Complex))
+                                            CaptionFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                        EditCase.Left,
+                                                                                        2,
+                                                                                        TestCount,
+                                                                                        ValuePairList,
+                                                                                        ObjectTestClass.state,
+                                                                                        ECloseType.Complex))
+                                            StateCount += 1
+                                        Case Else
+                                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End Select
+
+                                Next
+                                If FirstStateFound Then
+                                    If Not StatesClosed Then
+                                        ' handle the case when no connection block is present and the state blocks need closed
+                                        CaptionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        CaptionFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                        CaptionFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                        CaptionFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                    End If
+                                    StatesClosed = False
+                                    FirstStateFound = False
+                                    StateCount = 0
+                                End If
+                                If FirstConnectionFound Then
+                                    ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                                    ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                                    ' XML object creation that connections always go at the end
+                                    CaptionFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                                    CaptionFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                                    FirstConnectionFound = False
+                                End If
+                                CaptionCount = 0
+
+                                ' Close off this XML object
+                                If OType = ECloseType.Complex Then
+                                    ' Requires complex object closure
+                                    CaptionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                    CaptionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                End If
+                                TestCount += 1
+                                FirstCaptionFound = False
+                            Next
+                            Exit For ' added to avoid processing all captions when multiple instances exist as part of state sub objects
+                        End If
+                    Next
+                End If
+            Next
+
+
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                CaptionFileListLeft.Add(itm)
+                CaptionFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(CaptionFileListLeft)
+            FormatXMLFile(CaptionFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(CaptionFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_caption.xml"))
+            WriteOutputFile(CaptionFileListRight, GetPathToLocalFile("Output", FnameVar & "R_caption.xml"))
+            WriteOutputFile(CaptionFileCSV, GetPathToLocalFile("Output", FnameVar & "caption.csv"))
+
+
+            MsgBox("")
+
+        End If
+
+#End Region
+
+#Region "State List Generation"
+
+        ' Check if this code block should run
+        For Each itm As subparam In MainObjectList.sList.lSubParamList
+            If itm.type = TypeConstants.state Then
+                Type_State_Exists = True
+            End If
+        Next
+
+        If Type_State_Exists Then
+            ' Generate file content for the main parameter list
+            Dim StateFileListLeft As List(Of String) = New List(Of String)
+            Dim StateFileListRight As List(Of String) = New List(Of String)
+            Dim StateFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
+            FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
+            StateCount = 0
+            CaptionCount = 0
+            Dim StateMask(10) As Boolean
+            Dim StateInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.state)
+
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
+
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                StateFileListLeft.Add(itm)
+                StateFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            StateFileCSV.Add("Test number,Property,Left,Right")
+
+            ' Set up caption mask
+            Select Case True
+                Case StateInstCount > 3
+                    StateMask(0) = True
+                    StateMask(1) = True
+                    StateMask(3) = True
+                Case StateInstCount > 2
+                    StateMask(0) = True
+                    StateMask(1) = True
+                    StateMask(2) = True
+                Case StateInstCount = 1
+                    StateMask(0) = True
+                Case StateInstCount = 2
+                    StateMask(0) = True
+                    StateMask(1) = True
+                Case StateInstCount = 0
+                    StateMask(0) = True
+                Case Else
+                    Throw New Exception("Whoops, it appears you didnt think of everything")
+            End Select
+
+            ' Loop through the test generation process for as many caption test masks are active
+            For Smask = 0 To 9
+                If StateMask(Smask) Then
+                    For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                        If sublist.type = TypeConstants.state Then
+                            ' This object has a caption sub object type so generate an output file for it
+                            For Each sparam As Param In sublist.subParList
+                                ' Generate the main objects data with only left cases
+                                StateFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                StateFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                'StateFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.caption, TestCount))
+
+                                For Each subp As subparam In MainObjectList.sList.lSubParamList
+                                    Select Case subp.type
+                                        Case TypeConstants.caption
+                                            StateFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.caption,
+                                                                                         ECloseType.Simple))
+                                            StateFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                        EditCase.Left,
+                                                                                        2,
+                                                                                        TestCount,
+                                                                                        ValuePairList,
+                                                                                        ObjectTestClass.caption,
+                                                                                        ECloseType.Simple))
+                                            CaptionCount += 1
+                                        Case TypeConstants.imageSettings
+
+                                            StateFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+
+                                            StateFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+                                        Case TypeConstants.connection
+                                            If FirstStateFound Then
+                                                ' Close off the previous state before starting a connection block
+                                                MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                StatesClosed = True
+                                            End If
+                                            If FirstConnectionFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                StateFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                                StateFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                                FirstConnectionFound = True
+                                            End If
+                                            StateFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             2,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                            StateFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                        Case TypeConstants.state
+                                            If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                                ' if this is a subsequent state found after the first then close off the previous state
+                                                StateFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                StateFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            End If
+                                            If FirstStateFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                StateFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                                StateFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                                FirstStateFound = True
+                                            End If
+                                            If StateCount = Smask Then ' Select the state instance count to modify based on the mask
+                                                ' Check if this parameter is the stateId and skip it, this property value cannot be edited by a user in ME
+                                                If Not sparam.sProperty = TypeConstants.stateId Then
+                                                    ' Add test case for this state only
+                                                    Dim Addstr As String = DetermineAddStrByCase(MainObjectList, StateCount)
+                                                    StateFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.state, TestCount, Addstr))
+                                                    ' Only substitute params in the first caption object
+                                                    StateFileListLeft.Add(CreateXMLObjectStateByDefinition(subp,
+                                                                                                           sparam,
+                                                                                                           EditCase.Left,
+                                                                                                           CaptionIndentLevel,
+                                                                                                           TestCount,
+                                                                                                           ValuePairList,
+                                                                                                           ObjectTestClass.state,
+                                                                                                           ECloseType.Complex))
+
+                                                    StateFileListRight.Add(CreateXMLObjectStateByDefinition(subp,
+                                                                                                            sparam,
+                                                                                                            EditCase.Right,
+                                                                                                            CaptionIndentLevel,
+                                                                                                            TestCount,
+                                                                                                            ValuePairList,
+                                                                                                            ObjectTestClass.state,
+                                                                                                            ECloseType.Complex))
+                                                    FirstStateFound = True
+                                                Else
+                                                    ' Add subsequent states with left case (default) parameters only
+                                                    StateFileListLeft.Add(CreateXMLObjectByDefinition(subp, EditCase.Left, 1,
+                                                                                                      TestCount,
+                                                                                                      ValuePairList,
+                                                                                                      ObjectTestClass.state,
+                                                                                                      ECloseType.Complex))
+                                                    StateFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                       EditCase.Left,
+                                                                                                       1,
+                                                                                                       TestCount,
+                                                                                                       ValuePairList,
+                                                                                                       ObjectTestClass.state,
+                                                                                                       ECloseType.Complex))
+                                                End If
+
+                                            Else
+                                                ' Add subsequent states with left case (default) parameters only
+                                                StateFileListLeft.Add(CreateXMLObjectByDefinition(subp, EditCase.Left, 1,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.state,
+                                                                                                  ECloseType.Complex))
+                                                StateFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                   EditCase.Left,
+                                                                                                   1,
+                                                                                                   TestCount,
+                                                                                                   ValuePairList,
+                                                                                                   ObjectTestClass.state,
+                                                                                                   ECloseType.Complex))
+                                            End If
+                                            StateCount += 1
+                                        Case Else
+                                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End Select
+
+                                Next
+                                If FirstStateFound Then
+                                    If Not StatesClosed Then
+                                        ' handle the case when no connection block is present and the state blocks need closed
+                                        StateFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        StateFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                        StateFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                        StateFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                    End If
+                                    StatesClosed = False
+                                    FirstStateFound = False
+                                    StateCount = 0
+                                End If
+                                If FirstConnectionFound Then
+                                    ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                                    ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                                    ' XML object creation that connections always go at the end
+                                    StateFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                                    StateFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                                    FirstConnectionFound = False
+                                End If
+                                CaptionCount = 0
+
+                                ' Close off this XML object
+                                If OType = ECloseType.Complex Then
+                                    ' Requires complex object closure
+                                    StateFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                    StateFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                End If
+                                TestCount += 1
+                                FirstCaptionFound = False
+                            Next
+                            Exit For ' added to avoid processing all captions when multiple instances exist as part of state sub objects
+                        End If
+                    Next
+                End If
+            Next
+
+
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                StateFileListLeft.Add(itm)
+                StateFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(StateFileListLeft)
+            FormatXMLFile(StateFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(StateFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_state.xml"))
+            WriteOutputFile(StateFileListRight, GetPathToLocalFile("Output", FnameVar & "R_state.xml"))
+            WriteOutputFile(StateFileCSV, GetPathToLocalFile("Output", FnameVar & "state.csv"))
+
+            MsgBox("")
+
+        End If
+
+
+#End Region
+
+#Region "Connection List Generation"
+
+        ' Check if this code block should run
+        For Each itm As subparam In MainObjectList.sList.lSubParamList
+            If itm.type = TypeConstants.connection Then
+                Type_Connection_Exists = True
+            End If
+        Next
+
+        If Type_Connection_Exists Then
+
+            ' Generate file content for the main parameter list
+            Dim ConnectionFileListLeft As List(Of String) = New List(Of String)
+            Dim ConnectionFileListRight As List(Of String) = New List(Of String)
+            Dim ConnectionFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
+
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
+
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                ConnectionFileListLeft.Add(itm)
+                ConnectionFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            ConnectionFileCSV.Add("Test number,Property,Left,Right")
+
+            For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                If sublist.type = TypeConstants.connection Then
+                    ' This object has an imagesettings sub object type so generate an output file for it
+                    For Each sparam As Param In sublist.subParList
+                        If Not sparam.sProperty = "name" Then ' Dont process the name property in the connection as it cant be changed by the user
+                            ' Generate the main objects data with only left cases
+                            ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                            ConnectionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                            ConnectionFileCSV.Add(CreateTestCaseByConnection(sparam, TestCount, (TestCount - 1)))
+
+                            For Each subp As subparam In MainObjectList.sList.lSubParamList
+                                Select Case subp.type
+                                    Case TypeConstants.caption
+                                        ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.caption,
+                                                                                         ECloseType.Simple))
+                                        ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.caption,
+                                                                                         ECloseType.Simple))
+
+
+                                    Case TypeConstants.imageSettings
+
+                                        ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.image,
+                                                                                         ECloseType.Simple))
+
+                                        ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.image,
+                                                                                         ECloseType.Simple))
+                                    Case TypeConstants.connection
+                                        If FirstConnectionFound = False Then
+                                            ' Add an additional line here for the connection xml configuration on the first time only
+                                            ConnectionFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                            ConnectionFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                            FirstConnectionFound = True
+                                        End If
+                                        ' in here we need to select the behaviour of the connection XML generation based on 
+                                        ' if this connection matches the current connection selected in the top level for each loop
+                                        If sublist.subParList.Item(1).sValue = subp.subParList.Item(1).sValue Then
+                                            ' This connection matches the current selected connection at the top level so needs its parameters substituted like
+                                            ' The test CSV case
+                                            ConnectionFileListLeft.Add(CreateTestXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.caption,
+                                                                                         ECloseType.Simple,
+                                                                                         ""))
+                                            ConnectionFileListRight.Add(CreateTestXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.caption,
+                                                                                         ECloseType.Simple,
+                                                                                         "s"))
+                                        Else
+                                            ConnectionFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.caption,
+                                                                                         ECloseType.Simple))
+                                            ConnectionFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                        End If
+
+                                    Case Else
+                                        Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                End Select
+                            Next
+                            If FirstConnectionFound Then
+                                ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                                ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                                ' XML object creation that connections always go at the end
+                                ConnectionFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                                ConnectionFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                                FirstConnectionFound = False
+                            End If
+
+                            ' Close off this XML object
+                            If OType = ECloseType.Complex Then
+                                ' Requires complex object closure
+                                ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            End If
+                            TestCount += 1
+                        End If
+                    Next
+                End If
+            Next
+
+            ' Handle connection list special cases
+            ' Count number of connections present in sublist
+            ' Also check if any of the connections has an optional expression
+            Dim ConnectionCount As Integer = 0
+            Dim HasOptionalExpression As Boolean = False
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type = TypeConstants.connection Then
+                    ConnectionCount += 1
+                End If
+                For Each subitm As Param In itm.subParList
+                    If subitm.sProperty = TypeConstants.optionalExpression Then
+                        HasOptionalExpression = True
+                    End If
+                Next
+            Next
+
+            Dim SpecialCaseMessage As String = ""
+            If ConnectionCount > 0 Then
+                SpecialCaseMessage = InputBox("Enter the name of the object type as it will appear" & vbCrLf &
+                                              "in the test CSV for connection count mismatch", "Special case message string req", "")
+            End If
+
+            Select Case HasOptionalExpression
+                Case True
+                    Throw New Exception("Oops, not handled yet, get yer finger oot!")
+                Case False
+                    Select Case ConnectionCount
+                        Case 0
+                        ' Do nothing in here, this object has no connections
+                        Case 1
+
+                            For SpecialCases = 1 To 2
+                                Call GenerateXMLObjectWithoutConnections(MainObjectList,
+                                                                     ConnectionFileListLeft,
+                                                                     ConnectionFileListRight,
+                                                                     ConnectionFileCSV,
+                                                                     TestCount,
+                                                                     ValuePairList,
+                                                                     FirstConnectionFound,
+                                                                     OType)
+                                Select Case SpecialCases
+                                    Case 1 ' Left no connections, right defined
+                                        Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
+                                        ' Dont add the left here as its missing in this case
+
+                                        ' Add test case to the CSV file
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                                "nothing",
+                                                                                                "defined",
+                                                                                                TestCount))
+                                    Case 2 ' right no connections, left defined
+                                        Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
+                                        ' Dont add the right here as its missing in this case
+                                        ' Add test case to the CSV file
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                                "defined",
+                                                                                                "nothing",
+                                                                                                TestCount))
+                                End Select
+
+                                ' Close off this XML object
+                                If OType = ECloseType.Complex Then
+                                    ' Requires complex object closure
+                                    ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                    ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                End If
+
+                                TestCount += 1
+
+                            Next
+
+
+                        Case Else
+                            ' More than 1 connection so generate the usual test cases
+
+                            For SpecialCases = 1 To 6
+                                Call GenerateXMLObjectWithoutConnections(MainObjectList,
+                                                                     ConnectionFileListLeft,
+                                                                     ConnectionFileListRight,
+                                                                     ConnectionFileCSV,
+                                                                     TestCount,
+                                                                     ValuePairList,
+                                                                     FirstConnectionFound,
+                                                                     OType)
+                                Select Case SpecialCases
+                                    Case 1 ' left no connections - right defined
+                                        Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
+                                        ' Dont add the left here as its missing in this case
+
+                                        ' Add test case to the CSV file
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                                "nothing",
+                                                                                                "defined",
+                                                                                                TestCount))
+
+                                    Case 2 ' right no connections - left defined
+                                        Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
+                                        ' Dont add the right here as its missing in this case
+                                        ' Add test case to the CSV file
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                                "defined",
+                                                                                                "nothing",
+                                                                                                TestCount))
+                                    Case 3 ' left - right connection count mismatch, 1 conn missing from left
+                                        ' Add entries into both lists but filter 1 parameter each
+                                        Dim LeftParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 2)
+                                        Dim RightParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 1)
+                                        Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 1)
+                                        Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 2)
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial("Connection 0 - expression",
+                                                                                                LeftParStr,
+                                                                                                RightParStr,
+                                                                                                TestCount))
+                                    Case 4 ' right - left connection count mismatch, 1 conn missing from right
+                                        ' Add entries into both lists but filter 1 parameter each
+                                        Dim LeftParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 1)
+                                        Dim RightParStr As String = GetTestCaseValueForConnectionBySubparam(MainObjectList, 2)
+                                        Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 2)
+                                        Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 1)
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial("Connection 0 - expression",
+                                                                                                LeftParStr,
+                                                                                                RightParStr,
+                                                                                                TestCount))
+                                    Case 5 ' left <> right, each side has 1 connection missing but different for each side
+                                        ' Add all to right side, skip 1 on the left
+                                        Call AddConnectionsNoParams(MainObjectList, ConnectionFileListRight, ValuePairList)
+                                        Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListLeft, ValuePairList, 1)
+                                        ' Add test case to the CSV file
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                                (ConnectionCount - 1).ToString,
+                                                                                                ConnectionCount.ToString,
+                                                                                                TestCount))
+                                    Case 6 ' right <> left, each side has 1 connection missing but different for each side
+                                        ' Add all to left side, skip 1 on the right
+                                        Call AddConnectionsNoParams(MainObjectList, ConnectionFileListLeft, ValuePairList)
+                                        Call AddConnectionsFilterParam(MainObjectList, ConnectionFileListRight, ValuePairList, 1)
+                                        ' Add test case to the CSV file
+                                        ConnectionFileCSV.Add(CreateTestCaseByConnectionSpecial(SpecialCaseMessage & " - Connection Count Mismatch",
+                                                                                                ConnectionCount.ToString,
+                                                                                                (ConnectionCount - 1).ToString,
+                                                                                                TestCount))
+                                End Select
+
+                                ' Close off this XML object
+                                If OType = ECloseType.Complex Then
+                                    ' Requires complex object closure
+                                    ConnectionFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                    ConnectionFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                End If
+
+                                TestCount += 1
+
+                            Next
+
+                    End Select
+            End Select
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                ConnectionFileListLeft.Add(itm)
+                ConnectionFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(ConnectionFileListLeft)
+            FormatXMLFile(ConnectionFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(ConnectionFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_connections.xml"))
+            WriteOutputFile(ConnectionFileListRight, GetPathToLocalFile("Output", FnameVar & "R_connections.xml"))
+            WriteOutputFile(ConnectionFileCSV, GetPathToLocalFile("Output", FnameVar & "connections.csv"))
+
+            MsgBox("")
+
+        End If
 
 #End Region
 
@@ -950,6 +1480,37 @@ Public Class Form1
         MsgBox("")
 
     End Sub
+
+    Public Function CountObjectInstance(ByRef MainObjectList As ParamList, ByRef TConst As String) As Integer
+        Dim i As Integer = 0
+        Dim iSTR As String = TConst
+        For Each subobj As subparam In MainObjectList.sList.lSubParamList.Where _
+            (Function(x) x.type = iSTR)
+            i += 1
+        Next
+        Return i
+    End Function
+
+    Public Function DetermineAddStrByCase(ByRef MainObjectList As ParamList,
+                                          ByRef StateNo As Integer) As String
+        Dim HasStates As Boolean
+        For Each subobj As subparam In MainObjectList.sList.lSubParamList
+            If subobj.type = TypeConstants.state Then
+                HasStates = True
+                Exit For
+            End If
+        Next
+
+        Select Case HasStates
+            Case True
+                Return "State " & StateNo & " - "
+            Case False
+                Return ""
+            Case Else
+                Return ""
+        End Select
+
+    End Function
 
     Public Function GetTestCaseValueForConnectionBySubparam(ByRef MainObjectList As ParamList, ByRef ConnectionNo As Integer) As String
 
@@ -1133,6 +1694,20 @@ Public Class Form1
 
     End Function
 
+    Public Function CreateTestCaseByTestNumber(ByRef Par As Param,
+                                               ByRef Tlist As List(Of ValuePair),
+                                               ByRef oClass As String,
+                                               ByRef Tcase As Integer,
+                                               ByRef AddDescription As String) As String
+        Dim tstr As String = ""
+        Dim LparVal As String = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Left)
+        Dim RparVal As String = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Right)
+        Dim ParName As String = Par.sProperty
+        tstr = Tcase.ToString & "," & AddDescription & ParName & "," & LparVal & "," & RparVal
+        CreateTestCaseByTestNumber = tstr
+
+    End Function
+
     Public Function CreateXMLObjectByDefinition(ByRef parList As ParamList,
                                                 ByRef EditParam As Param,
                                                 ByRef ECase As EditCase,
@@ -1239,6 +1814,60 @@ Public Class Form1
 
     End Function
 
+
+    Public Function CreateXMLObjectStateByDefinition(ByRef parList As subparam,
+                                                ByRef EditParam As Param,
+                                                ByRef ECase As EditCase,
+                                                ByRef IndentLevel As Integer,
+                                                ByRef TestInst As Integer,
+                                                ByRef TestDefs As List(Of ValuePair),
+                                                ByRef TestClass As String,
+                                                ByRef ClosingType As ECloseType) As String
+        ' Create an entire instance of an xml object on a single line based on the supplied definition in the param list
+        ' Substitute 1 of the parameters with the left/right special case based on matching the current edit param
+        ' All other parameters recieve the default values
+
+        Dim tstr As String = "" ' creating a temporary string here because the name is shorter than the function name for brevity
+
+        ' Get the special case parameters for this object
+        Dim EditCaseVal As String = GetParameterValueByCase(EditParam, TestDefs, TestClass, ECase)
+
+        ' Begin creating the xml object string
+        tstr &= "<" & parList.type & " "
+
+        ' Loop through each property of the XML object and create an entry for it in the XML string
+        ' Find the 1 property whose value needs to be changed and substitute its matching right value from the valuepair list
+        For Each itm In parList.subParList
+            Select Case itm.sProperty
+                Case "name"
+                    ' do nothing, dont process this because the name field is special
+                Case "stateId"
+                    ' Preserve the original value of this object parameter
+                    tstr &= itm.sProperty & "=""" & itm.sValue & """ "
+                Case Else
+                    If itm.sProperty = EditParam.sProperty Then
+                        tstr &= itm.sProperty & "=""" & EditCaseVal & """ "
+                    Else
+                        tstr &= itm.sProperty & "=""" & GetParameterValueByCase(itm, TestDefs, TestClass, EditCase.Left) & """ "
+                    End If
+            End Select
+        Next
+
+        ' add the closure of the xml object depending on type
+        Select Case ClosingType
+            Case ECloseType.Simple
+                tstr &= "/>"
+            Case ECloseType.Complex
+                tstr &= ">"
+        End Select
+
+        ' add the required whitespace 
+        tstr = AddWhiteSpace(IndentLevel, tstr)
+
+        ' Finally return the completed xml object
+        Return tstr
+
+    End Function
     Public Function CreateXMLObjectByDefinition(ByRef parList As subparam,
                                                 ByRef ECase As EditCase,
                                                 ByRef IndentLevel As Integer,
@@ -1673,6 +2302,9 @@ Public Class TypeConstants
     Public Const closingTag As String = "</"
     Public Const connection As String = "connection"
     Public Const optionalExpression As String = "optionalExpression"
+    Public Const states As String = "states"
+    Public Const state As String = "state"
+    Public Const stateId As String = "stateId"
 End Class
 
 Public Enum EditCase
@@ -1689,5 +2321,6 @@ Public Class ObjectTestClass
     Public Const caption As String = "caption"
     Public Const image As String = "image"
     Public Const connection As String = "connection"
+    Public Const state As String = "state"
 End Class
 

@@ -129,3 +129,4 @@ state,gradientStop,50,40
 state,gradientDirection,gradientDirectionHorizontal,gradientDirectionVertical
 state,gradientShadingStyle,gradientHorizontalFromRight,gradientVerticalFromTop
 state,value,0,1
+,imageName,Alm_AckReqd,Alm_Active

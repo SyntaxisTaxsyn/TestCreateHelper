@@ -1289,7 +1289,7 @@ Public Class Form1
             WriteOutputFile(StateFileListRight, GetPathToLocalFile("Output", FnameVar & "R_state.xml"))
             WriteOutputFile(StateFileCSV, GetPathToLocalFile("Output", FnameVar & "state.csv"))
 
-            MsgBox("")
+            'MsgBox("")
 
         End If
 
@@ -1666,7 +1666,7 @@ Public Class Form1
             WriteOutputFile(ConnectionFileListRight, GetPathToLocalFile("Output", FnameVar & "R_connections.xml"))
             WriteOutputFile(ConnectionFileCSV, GetPathToLocalFile("Output", FnameVar & "connections.csv"))
 
-            MsgBox("")
+            'MsgBox("")
 
         End If
 
@@ -1675,7 +1675,7 @@ Public Class Form1
 
 
 
-        MsgBox("")
+        MsgBox("Done")
 
     End Sub
 
@@ -1933,10 +1933,50 @@ Public Class Form1
                                                ByRef oClass As String,
                                                ByRef Tcase As Integer,
                                                ByRef AddDescription As String) As String
+        Dim AlignmentType As String = ""
         Dim tstr As String = ""
-        Dim LparVal As String = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Left)
-        Dim RparVal As String = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Right)
+        Dim LparVal As String
+        Dim RparVal As String
         Dim ParName As String = Par.sProperty
+
+        ' Handle special cases of test values for certain edge cases
+        Select Case Par.sProperty
+            Case "alignment"
+                Select Case Par.sValue
+                    Case "left"
+                        AlignmentType = "simple"
+                    Case "center"
+                        AlignmentType = "simple"
+                    Case "right"
+                        AlignmentType = "simple"
+                    Case Else
+                        AlignmentType = "complex"
+                End Select
+
+                If AlignmentType = "simple" Then
+                    LparVal = "center"
+                    RparVal = "left"
+                Else
+                    LparVal = "middleCenter"
+                    RparVal = "middleLeft"
+                End If
+            Case "value"
+                LparVal = "0" ' Use original value from object
+                RparVal = "-1" ' fixed value from the other special case handler
+            Case Else
+                ' Gather test values in the normal fashion 
+                LparVal = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Left)
+                RparVal = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Right)
+        End Select
+        ' Handle special case of alignment property and value
+        If Par.sProperty = "alignment" Then
+
+
+
+        Else
+
+        End If
+
         tstr = Tcase.ToString & "," & AddDescription & ParName & "," & LparVal & "," & RparVal
         CreateTestCaseByTestNumber = tstr
 
@@ -1958,6 +1998,7 @@ Public Class Form1
 
         ' Get the special case parameters for this object
         Dim EditCaseVal As String = GetParameterValueByCase(EditParam, TestDefs, TestClass, ECase)
+        Dim AlignmentType As String = ""
 
         ' Begin creating the xml object string
         tstr &= "<" & parList.type & " "
@@ -1969,6 +2010,42 @@ Public Class Form1
             Select Case itm.sProperty
                 Case "name"
                     ' do nothing, dont process this because the name field is special
+                Case "alignment"
+                    ' It appears rockwell were naughty and use 2 xml properties called alignment
+                    ' Where the type of object might need them as 1 of 2 types of enum on deserialization
+                    ' This block will try to read theh type of alignment attribute required and select the correct type
+                    ' of test case to generate
+                    Select Case itm.sValue
+                        Case "left"
+                            AlignmentType = "simple"
+                        Case "center"
+                            AlignmentType = "simple"
+                        Case "right"
+                            AlignmentType = "simple"
+                        Case Else
+                            AlignmentType = "complex"
+                    End Select
+                    If AlignmentType = "simple" Then
+                        If itm.sProperty = EditParam.sProperty Then
+                            If ECase = EditCase.Left Then
+                                tstr &= itm.sProperty & "=""" & "center" & """ "
+                            Else
+                                tstr &= itm.sProperty & "=""" & "left" & """ "
+                            End If
+                        Else
+                            tstr &= itm.sProperty & "=""" & "center" & """ "
+                        End If
+                    Else
+                        If itm.sProperty = EditParam.sProperty Then
+                            If ECase = EditCase.Left Then
+                                tstr &= itm.sProperty & "=""" & "middleCenter" & """ "
+                            Else
+                                tstr &= itm.sProperty & "=""" & "middleLeft" & """ "
+                            End If
+                        Else
+                            tstr &= itm.sProperty & "=""" & "middleCenter" & """ "
+                        End If
+                    End If
                 Case Else
                     If itm.sProperty = EditParam.sProperty Then
                         tstr &= itm.sProperty & "=""" & EditCaseVal & """ "
@@ -2008,6 +2085,7 @@ Public Class Form1
         ' All other parameters recieve the default values
 
         Dim tstr As String = "" ' creating a temporary string here because the name is shorter than the function name for brevity
+        Dim AlignmentType As String = ""
 
         ' Get the special case parameters for this object
         Dim EditCaseVal As String = GetParameterValueByCase(EditParam, TestDefs, TestClass, ECase)
@@ -2022,6 +2100,42 @@ Public Class Form1
             Select Case itm.sProperty
                 Case "name"
                     ' do nothing, dont process this because the name field is special
+                Case "alignment"
+                    ' It appears rockwell were naughty and use 2 xml properties called alignment
+                    ' Where the type of object might need them as 1 of 2 types of enum on deserialization
+                    ' This block will try to read theh type of alignment attribute required and select the correct type
+                    ' of test case to generate
+                    Select Case itm.sValue
+                        Case "left"
+                            AlignmentType = "simple"
+                        Case "center"
+                            AlignmentType = "simple"
+                        Case "right"
+                            AlignmentType = "simple"
+                        Case Else
+                            AlignmentType = "complex"
+                    End Select
+                    If AlignmentType = "simple" Then
+                        If itm.sProperty = EditParam.sProperty Then
+                            If ECase = EditCase.Left Then
+                                tstr &= itm.sProperty & "=""" & "center" & """ "
+                            Else
+                                tstr &= itm.sProperty & "=""" & "left" & """ "
+                            End If
+                        Else
+                            tstr &= itm.sProperty & "=""" & "center" & """ "
+                        End If
+                    Else
+                        If itm.sProperty = EditParam.sProperty Then
+                            If ECase = EditCase.Left Then
+                                tstr &= itm.sProperty & "=""" & "middleCenter" & """ "
+                            Else
+                                tstr &= itm.sProperty & "=""" & "middleLeft" & """ "
+                            End If
+                        Else
+                            tstr &= itm.sProperty & "=""" & "middleCenter" & """ "
+                        End If
+                    End If
                 Case Else
                     If itm.sProperty = EditParam.sProperty Then
                         tstr &= itm.sProperty & "=""" & EditCaseVal & """ "
@@ -2084,7 +2198,7 @@ Public Class Form1
                         ' left use original, right use - 1
                         Select Case ECase
                             Case EditCase.Left
-                                tstr &= itm.sProperty & "=""" & itm.sValue & """ "
+                                tstr &= itm.sProperty & "=""" & "0" & """ "
                             Case EditCase.Right
                                 tstr &= itm.sProperty & "=""" & "-1" & """ "
                         End Select
@@ -2128,6 +2242,7 @@ Public Class Form1
         ' All other parameters recieve the default values
 
         Dim tstr As String = "" ' creating a temporary string here because the name is shorter than the function name for brevity
+        Dim AlignmentType As String = ""
 
         ' Get the special case parameters for this object
         'Dim EditCaseVal As String = GetParameterValueByCase(EditParam, TestDefs, TestClass, ECase)
@@ -2142,6 +2257,44 @@ Public Class Form1
             Select Case itm.sProperty
                 'Case "name"
                 ' do nothing, dont process this because the name field is special
+                Case "alignment"
+                    ' It appears rockwell were naughty and use 2 xml properties called alignment
+                    ' Where the type of object might need them as 1 of 2 types of enum on deserialization
+                    ' This block will try to read theh type of alignment attribute required and select the correct type
+                    ' of test case to generate
+                    Select Case itm.sValue
+                        Case "left"
+                            AlignmentType = "simple"
+                        Case "center"
+                            AlignmentType = "simple"
+                        Case "right"
+                            AlignmentType = "simple"
+                        Case Else
+                            AlignmentType = "complex"
+                    End Select
+                    If AlignmentType = "simple" Then
+                        tstr &= itm.sProperty & "=""" & "center" & """ "
+                        'If itm.sProperty = EditParam.sProperty Then
+                        '    If ECase = EditCase.Left Then
+                        '        tstr &= itm.sProperty & "=""" & "center" & """ "
+                        '    Else
+                        '        tstr &= itm.sProperty & "=""" & "left" & """ "
+                        '    End If
+                        'Else
+
+                        'End If
+                    Else
+                        tstr &= itm.sProperty & "=""" & "middleCenter" & """ "
+                        'If itm.sProperty = EditParam.sProperty Then
+                        '    If ECase = EditCase.Left Then
+                        '        tstr &= itm.sProperty & "=""" & "middleCenter" & """ "
+                        '    Else
+                        '        tstr &= itm.sProperty & "=""" & "middleLeft" & """ "
+                        '    End If
+                        'Else
+
+                        'End If
+                    End If
                 Case Else
                     'If itm.sProperty = EditParam.sProperty Then
                     '    tstr &= itm.sProperty & "=""" & EditCaseVal & """ "

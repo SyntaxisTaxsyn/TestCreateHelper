@@ -74,6 +74,10 @@ Public Class Form1
             Dim statesPresent As Boolean = False
             Dim stateLRange As Integer = 0
             Dim stateRRange As Integer = 0
+            ' Add threshold handling variables
+            Dim thresholdsPresent As Boolean = False
+            Dim thresholdLRange As Integer = 0
+            Dim thresholdRRange As Integer = 0
             ' Process the remaining lines
             For a = 1 To linecount - 1
                 Dim typeIsKnown As Boolean = False
@@ -109,6 +113,11 @@ Public Class Form1
                 End If
                 If InStr(tstr(a), "<state ") Then
                     type = TypeConstants.state
+                    typeIsKnown = True
+                End If
+                ' Add new threshold type handling here
+                If InStr(tstr(a), "<threshold") Then
+                    type = TypeConstants.Threshold
                     typeIsKnown = True
                 End If
                 If Not typeIsKnown Then
@@ -171,6 +180,14 @@ Public Class Form1
                             Next
                         Else
                         End If
+
+                    Case TypeConstants.Threshold
+                        Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                        MainObjectList.sList.lSubParamList.Add(newSubObject)
+                    Case "</"
+                    Case ""
+                    Case Else
+                        Throw New Exception("Unhandled type detected")
 
                 End Select
             Next
@@ -293,11 +310,13 @@ Public Class Form1
         Dim StatesClosed As Boolean = False
         Dim Type_ImageSettings_Exists As Boolean = False
         Dim Type_Caption_Exists As Boolean = False
+        Dim Type_Threshold_Exists As Boolean = False
         Dim Type_Connection_Exists As Boolean = False
         Dim Type_State_Exists As Boolean = False
         Dim StateCount As Integer = 0
         Dim CaptionCount As Integer = 0
         Dim ImageCount As Integer = 0
+        Dim ThresholdCount As Integer = 0
 
         If MainObjectList.sList IsNot Nothing Then
             OType = ECloseType.Complex
@@ -326,6 +345,21 @@ Public Class Form1
                     ' Enumerate through the sub object children and create those entries for this object instance
                     For Each subp As subparam In MainObjectList.sList.lSubParamList
                         Select Case subp.type
+                            Case TypeConstants.Threshold
+                                MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                 EditCase.Left,
+                                                                                 1,
+                                                                                 TestCount,
+                                                                                 ValuePairList,
+                                                                                 ObjectTestClass.threshold,
+                                                                                 ECloseType.Simple))
+                                MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                 EditCase.Left,
+                                                                                 1,
+                                                                                 TestCount,
+                                                                                 ValuePairList,
+                                                                                 ObjectTestClass.threshold,
+                                                                                 ECloseType.Simple))
                             Case TypeConstants.caption
                                 Select Case FirstStateFound
                                     Case True
@@ -544,6 +578,21 @@ Public Class Form1
 
                                 For Each subp As subparam In MainObjectList.sList.lSubParamList
                                     Select Case subp.type
+                                        Case TypeConstants.Threshold
+                                            ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                            ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
                                         Case TypeConstants.caption
                                             ImageFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
                                                                                          EditCase.Left,
@@ -811,6 +860,21 @@ Public Class Form1
 
                                 For Each subp As subparam In MainObjectList.sList.lSubParamList
                                     Select Case subp.type
+                                        Case TypeConstants.Threshold
+                                            CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                            CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
                                         Case TypeConstants.caption
                                             If CaptionCount = Cmask Then ' Select the caption instance count to modify based on the mask
                                                 ' Add test case for this caption only
@@ -1066,6 +1130,21 @@ Public Class Form1
 
                                 For Each subp As subparam In MainObjectList.sList.lSubParamList
                                     Select Case subp.type
+                                        Case TypeConstants.Threshold
+                                            StateFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                            StateFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
                                         Case TypeConstants.caption
                                             StateFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
                                                                                          EditCase.Left,
@@ -1341,6 +1420,21 @@ Public Class Form1
 
                             For Each subp As subparam In MainObjectList.sList.lSubParamList
                                 Select Case subp.type
+                                    Case TypeConstants.Threshold
+                                        ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.threshold,
+                                                                                         ECloseType.Simple))
+                                        ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.threshold,
+                                                                                         ECloseType.Simple))
                                     Case TypeConstants.state
                                         If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
                                             ' if this is a subsequent state found after the first then close off the previous state
@@ -1672,6 +1766,287 @@ Public Class Form1
 
 #End Region
 
+#Region "Threshold List Generation"
+
+        ' Check if this code block should run
+        For Each itm As subparam In MainObjectList.sList.lSubParamList
+            If itm.type = TypeConstants.Threshold Then
+                Type_Threshold_Exists = True
+            End If
+        Next
+
+        If Type_Threshold_Exists Then
+            ' Generate file content for the main parameter list
+            Dim ThresholdFileListLeft As List(Of String) = New List(Of String)
+            Dim ThresholdFileListRight As List(Of String) = New List(Of String)
+            Dim ThresholdFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
+            FirstCaptionFound = False ' Added to ensure only the first caption type gets processed when dealing with mutlistate objects
+            FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
+            StateCount = 0
+            CaptionCount = 0
+            ThresholdCount = 0
+            Dim ThresholdMask(10) As Boolean
+            Dim ThresholdInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.Threshold)
+
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
+
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                ThresholdFileListLeft.Add(itm)
+                ThresholdFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            ThresholdFileCSV.Add("Test number,Property,Left,Right")
+
+            ' Set up caption mask
+            Select Case ThresholdInstCount
+                Case 1
+                    ThresholdMask(0) = True
+                    ThresholdMask(1) = False
+                Case 2
+                    ThresholdMask(0) = True
+                    ThresholdMask(1) = True
+                Case Else
+                    Throw New Exception("Whoops, it appears you didnt think of everything")
+            End Select
+
+            ' Loop through the test generation process for as many caption test masks are active
+            For Tmask = 0 To 9
+                If ThresholdMask(Tmask) Then
+                    For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                        If sublist.type = TypeConstants.Threshold Then
+                            ' This object has a caption sub object type so generate an output file for it
+                            For Each sparam As Param In sublist.subParList
+                                ' Generate the main objects data with only left cases
+                                ThresholdFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                ThresholdFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                'ThresholdFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.caption, TestCount))
+
+                                For Each subp As subparam In MainObjectList.sList.lSubParamList
+                                    Select Case subp.type
+                                        Case TypeConstants.Threshold
+                                            If ThresholdCount = Tmask Then
+                                                If Not sparam.sProperty = "thresholdIndex" Then
+                                                    Dim addstr As String = "Threshold " & ThresholdCount & " - "
+                                                    ThresholdFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.threshold, TestCount, addstr))
+                                                    ThresholdFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                  sparam,
+                                                                                                  EditCase.Left,
+                                                                                                  1,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.threshold,
+                                                                                                  ECloseType.Simple))
+                                                    ThresholdFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                  sparam,
+                                                                                                  EditCase.Right,
+                                                                                                  1,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.threshold,
+                                                                                                  ECloseType.Simple))
+                                                Else
+                                                    ThresholdFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                                    ThresholdFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                     EditCase.Left,
+                                                                                                     1,
+                                                                                                     TestCount,
+                                                                                                     ValuePairList,
+                                                                                                     ObjectTestClass.threshold,
+                                                                                                     ECloseType.Simple))
+                                                End If
+
+                                            Else
+                                                ThresholdFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                                ThresholdFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.threshold,
+                                                                                                 ECloseType.Simple))
+                                            End If
+                                            ThresholdCount += 1
+
+                                        Case TypeConstants.caption
+                                            ThresholdFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                            ThresholdFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                            CaptionCount += 1
+                                        Case TypeConstants.imageSettings
+
+                                            ThresholdFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+
+                                            ThresholdFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+                                        Case TypeConstants.connection
+                                            If FirstStateFound Then
+                                                ' Close off the previous state before starting a connection block
+                                                ThresholdFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                ThresholdFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                ThresholdFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                ThresholdFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                StatesClosed = True
+                                            End If
+                                            If FirstConnectionFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                ThresholdFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                                ThresholdFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                                FirstConnectionFound = True
+                                            End If
+                                            ThresholdFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             2,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                            ThresholdFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                        Case TypeConstants.state
+                                            If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                                ' if this is a subsequent state found after the first then close off the previous state
+                                                ThresholdFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                ThresholdFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            End If
+                                            If FirstStateFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                ThresholdFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                                ThresholdFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                                FirstStateFound = True
+                                            End If
+                                            ThresholdFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.state,
+                                                                                         ECloseType.Complex))
+                                            ThresholdFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                        EditCase.Left,
+                                                                                        2,
+                                                                                        TestCount,
+                                                                                        ValuePairList,
+                                                                                        ObjectTestClass.state,
+                                                                                        ECloseType.Complex))
+                                            StateCount += 1
+                                        Case Else
+                                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End Select
+
+                                Next
+                                If FirstStateFound Then
+                                    If Not StatesClosed Then
+                                        ' handle the case when no connection block is present and the state blocks need closed
+                                        ThresholdFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        ThresholdFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                        ThresholdFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                        ThresholdFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                    End If
+                                    StatesClosed = False
+                                    FirstStateFound = False
+                                    StateCount = 0
+                                End If
+                                If FirstConnectionFound Then
+                                    ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                                    ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                                    ' XML object creation that connections always go at the end
+                                    ThresholdFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                                    ThresholdFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                                    FirstConnectionFound = False
+                                End If
+                                CaptionCount = 0
+                                ThresholdCount = 0
+
+                                ' Close off this XML object
+                                If OType = ECloseType.Complex Then
+                                    ' Requires complex object closure
+                                    ThresholdFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                    ThresholdFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                End If
+                                TestCount += 1
+                                FirstCaptionFound = False
+                            Next
+                            Exit For ' added to avoid processing all captions when multiple instances exist as part of state sub objects
+                        End If
+                    Next
+                End If
+            Next
+
+
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                ThresholdFileListLeft.Add(itm)
+                ThresholdFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(ThresholdFileListLeft)
+            FormatXMLFile(ThresholdFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(ThresholdFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_threshold.xml"))
+            WriteOutputFile(ThresholdFileListRight, GetPathToLocalFile("Output", FnameVar & "R_threshold.xml"))
+            WriteOutputFile(ThresholdFileCSV, GetPathToLocalFile("Output", FnameVar & "threshold.csv"))
+
+
+
+            MsgBox("")
+
+        End If
+
+#End Region
+
 
 
 
@@ -1868,6 +2243,23 @@ Public Class Form1
                                                                                      ValuePairList,
                                                                                      ObjectTestClass.state,
                                                                                      ECloseType.Complex))
+                Case TypeConstants.Threshold
+                    ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.threshold,
+                                                                                     ECloseType.Simple))
+
+                    ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.threshold,
+                                                                                     ECloseType.Simple))
+
                 Case Else
                     Throw New Exception("This type behaviour is not defined, please add it manually and try again")
             End Select
@@ -1963,6 +2355,10 @@ Public Class Form1
             Case "value"
                 LparVal = "0" ' Use original value from object
                 RparVal = "-1" ' fixed value from the other special case handler
+            Case "thresholdIndex"
+                ' retain original values
+                LparVal = Par.sValue
+                RparVal = Par.sValue
             Case Else
                 ' Gather test values in the normal fashion 
                 LparVal = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Left)
@@ -2010,6 +2406,8 @@ Public Class Form1
             Select Case itm.sProperty
                 Case "name"
                     ' do nothing, dont process this because the name field is special
+                Case "thresholdIndex"
+                    tstr &= itm.sProperty & "=""" & itm.sValue & """ "
                 Case "alignment"
                     ' It appears rockwell were naughty and use 2 xml properties called alignment
                     ' Where the type of object might need them as 1 of 2 types of enum on deserialization
@@ -2100,6 +2498,8 @@ Public Class Form1
             Select Case itm.sProperty
                 Case "name"
                     ' do nothing, dont process this because the name field is special
+                Case "thresholdIndex"
+                    tstr &= itm.sProperty & "=""" & itm.sValue & """ "
                 Case "alignment"
                     ' It appears rockwell were naughty and use 2 xml properties called alignment
                     ' Where the type of object might need them as 1 of 2 types of enum on deserialization
@@ -2257,6 +2657,8 @@ Public Class Form1
             Select Case itm.sProperty
                 'Case "name"
                 ' do nothing, dont process this because the name field is special
+                Case "thresholdIndex"
+                    tstr &= itm.sProperty & "=""" & itm.sValue & """ "
                 Case "alignment"
                     ' It appears rockwell were naughty and use 2 xml properties called alignment
                     ' Where the type of object might need them as 1 of 2 types of enum on deserialization
@@ -2706,6 +3108,7 @@ Public Class TypeConstants
     Public Const states As String = "states"
     Public Const state As String = "state"
     Public Const stateId As String = "stateId"
+    Public Const Threshold As String = "threshold"
 End Class
 
 Public Enum EditCase
@@ -2723,6 +3126,7 @@ Public Class ObjectTestClass
     Public Const image As String = "image"
     Public Const connection As String = "connection"
     Public Const state As String = "state"
+    Public Const threshold As String = "threshold"
 End Class
 
 

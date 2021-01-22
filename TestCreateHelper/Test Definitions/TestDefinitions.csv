@@ -24,7 +24,7 @@ caption,caption,text,texts
 caption,color,black,white
 caption,backColor,navy,lime
 caption,backStyle,transparent,solid
-caption,alignment,left,center
+caption,alignment,middleCenter,middleLeft
 caption,wordWrap,TRUE,FALSE
 caption,blink,FALSE,TRUE
 caption,strikethrough,FALSE,TRUE
@@ -117,3 +117,15 @@ imageSettings,backColor,white,black
 imageSettings,scaled,FALSE,TRUE
 imageSettings,blink,FALSE,TRUE
 connection,expression,exp,exp1
+,triggerType,value,LSB
+,currentStateId,0,1
+state,backColor,navy,lime
+state,borderColor,navy,lime
+state,patternColor,white,black
+state,patternStyle,none,dots
+state,blink,FALSE,TRUE
+state,endColor,white,black
+state,gradientStop,50,40
+state,gradientDirection,gradientDirectionHorizontal,gradientDirectionVertical
+state,gradientShadingStyle,gradientHorizontalFromRight,gradientVerticalFromTop
+state,value,0,1

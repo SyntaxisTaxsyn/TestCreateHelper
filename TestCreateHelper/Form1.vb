@@ -57,7 +57,8 @@ Public Class Form1
 
         If linecount = 1 Then
             ' this is a single line object definition
-            MsgBox("")
+            MainObjectList = GetObjParams(tstr(0))
+            'MsgBox("")
         Else
             ' this object has sub objects
             tstr = tstr
@@ -251,7 +252,7 @@ Public Class Form1
             End If
         Next
 
-        If ExceptionList.Count > 1 Then
+        If ExceptionList.Count > 0 Then
             Outputreport(ExceptionList)
             Throw New Exception("Missing test definitions detected, observe output file and correct manually")
         End If
@@ -340,148 +341,153 @@ Public Class Form1
                 MainFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, itm, EditCase.Left, 0, TestCount, ValuePairList, "", OType))
                 MainFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, itm, EditCase.Right, 0, TestCount, ValuePairList, "", OType))
                 MainFileCSV.Add(CreateTestCaseByTestNumber(itm, ValuePairList, "", TestCount))
-
                 If MainObjectList IsNot Nothing Then
-                    ' Enumerate through the sub object children and create those entries for this object instance
-                    For Each subp As subparam In MainObjectList.sList.lSubParamList
-                        Select Case subp.type
-                            Case TypeConstants.Threshold
-                                MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.threshold,
-                                                                                 ECloseType.Simple))
-                                MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.threshold,
-                                                                                 ECloseType.Simple))
-                            Case TypeConstants.caption
-                                Select Case FirstStateFound
-                                    Case True
-                                        CaptionIndentLevel = 3
-                                    Case False
-                                        CaptionIndentLevel = 1
-                                End Select
-                                MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 CaptionIndentLevel,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.caption,
-                                                                                 ECloseType.Simple))
-                                MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 CaptionIndentLevel,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.caption,
-                                                                                 ECloseType.Simple))
-                            Case TypeConstants.imageSettings
-                                MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.image,
-                                                                                 ECloseType.Simple))
-                                MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 1,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.image,
-                                                                                 ECloseType.Simple))
-                            Case TypeConstants.connection
-                                If FirstStateFound Then
-                                    ' Close off the previous state before starting a connection block
-                                    MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                                    MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                                    MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                                    MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
-                                    StatesClosed = True
-                                End If
-                                If FirstConnectionFound = False Then
-                                    ' Add an additional line here for the connection xml configuration on the first time only
-                                    MainFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
-                                    MainFileListRight.Add(AddWhiteSpace(1, "<connections>"))
-                                    FirstConnectionFound = True
-                                End If
-                                MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 2,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.caption,
-                                                                                 ECloseType.Simple))
-                                MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                EditCase.Left,
-                                                                                2,
-                                                                                TestCount,
-                                                                                ValuePairList,
-                                                                                ObjectTestClass.caption,
-                                                                                ECloseType.Simple))
-                            Case TypeConstants.state
-                                If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
-                                    ' if this is a subsequent state found after the first then close off the previous state
-                                    MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                                    MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                                End If
-                                If FirstStateFound = False Then
-                                    ' Add an additional line here for the connection xml configuration on the first time only
-                                    MainFileListLeft.Add(AddWhiteSpace(1, "<states>"))
-                                    MainFileListRight.Add(AddWhiteSpace(1, "<states>"))
-                                    FirstStateFound = True
-                                End If
-                                MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                 EditCase.Left,
-                                                                                 2,
-                                                                                 TestCount,
-                                                                                 ValuePairList,
-                                                                                 ObjectTestClass.state,
-                                                                                 ECloseType.Complex))
-                                MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
-                                                                                EditCase.Left,
-                                                                                2,
-                                                                                TestCount,
-                                                                                ValuePairList,
-                                                                                ObjectTestClass.state,
-                                                                                ECloseType.Complex))
+                    If MainObjectList.sList IsNot Nothing Then
+                        ' Enumerate through the sub object children and create those entries for this object instance
+                        For Each subp As subparam In MainObjectList.sList.lSubParamList
+                            Select Case subp.type
+                                Case TypeConstants.Threshold
+                                    MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.threshold,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.threshold,
+                                                                                     ECloseType.Simple))
+                                Case TypeConstants.caption
+                                    Select Case FirstStateFound
+                                        Case True
+                                            CaptionIndentLevel = 3
+                                        Case False
+                                            CaptionIndentLevel = 1
+                                    End Select
+                                    MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     CaptionIndentLevel,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.caption,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     CaptionIndentLevel,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.caption,
+                                                                                     ECloseType.Simple))
+                                Case TypeConstants.imageSettings
+                                    MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.image,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.image,
+                                                                                     ECloseType.Simple))
+                                Case TypeConstants.connection
+                                    If FirstStateFound Then
+                                        ' Close off the previous state before starting a connection block
+                                        MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                        MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                        MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                        StatesClosed = True
+                                    End If
+                                    If FirstConnectionFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        MainFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                        MainFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                        FirstConnectionFound = True
+                                    End If
+                                    MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.caption,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.caption,
+                                                                                    ECloseType.Simple))
+                                Case TypeConstants.state
+                                    If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                        ' if this is a subsequent state found after the first then close off the previous state
+                                        MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                    End If
+                                    If FirstStateFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        MainFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                        MainFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                        FirstStateFound = True
+                                    End If
+                                    MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.state,
+                                                                                     ECloseType.Complex))
+                                    MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.state,
+                                                                                    ECloseType.Complex))
 
-                            Case Else
-                                Throw New Exception("This type behaviour is not defined, please add it manually and try again")
-                        End Select
-                    Next
-                    If FirstStateFound Then
-                        If Not StatesClosed Then
-                            ' handle the case when no connection block is present and the state blocks need closed
-                            MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                            MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                            MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                            MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                Case Else
+                                    Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                            End Select
+                        Next
+                        If FirstStateFound Then
+                            If Not StatesClosed Then
+                                ' handle the case when no connection block is present and the state blocks need closed
+                                MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                            End If
+                            StatesClosed = False
+                            FirstStateFound = False
                         End If
-                        StatesClosed = False
-                        FirstStateFound = False
+                        If FirstConnectionFound Then
+                            ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                            ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                            ' XML object creation that connections always go at the end
+                            MainFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                            MainFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                            FirstConnectionFound = False
+                        End If
+                        ' Close off this XML object
+                        If OType = ECloseType.Complex Then
+                            ' Requires complex object closure
+                            MainFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            MainFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                        End If
                     End If
-                    If FirstConnectionFound Then
-                        ' We know at least 1 connection has been defined and so we must close off the connections xml object group
-                        ' We do this at the end of the sub group iteration because we know by observation of the ME software
-                        ' XML object creation that connections always go at the end
-                        MainFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
-                        MainFileListRight.Add(AddWhiteSpace(1, "</connections>"))
-                        FirstConnectionFound = False
-                    End If
-                    ' Close off this XML object
-                    If OType = ECloseType.Complex Then
-                        ' Requires complex object closure
-                        MainFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                        MainFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-                    End If
+                Else
+                    ' this is a simple type so no other work required here, the object is already closed off
+
                 End If
+
             End If
             TestCount += 1
         Next
@@ -508,11 +514,13 @@ Public Class Form1
 #Region "Image List Generation"
 
         ' Check if this code block should run
-        For Each itm As subparam In MainObjectList.sList.lSubParamList
-            If itm.type = TypeConstants.imageSettings Then
-                Type_ImageSettings_Exists = True
-            End If
-        Next
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type = TypeConstants.imageSettings Then
+                    Type_ImageSettings_Exists = True
+                End If
+            Next
+        End If
 
         If Type_ImageSettings_Exists Then
             ' Generate file content for the main parameter list
@@ -779,11 +787,14 @@ Public Class Form1
 #Region "Caption List Generation"
 
         ' Check if this code block should run
-        For Each itm As subparam In MainObjectList.sList.lSubParamList
-            If itm.type = TypeConstants.caption Then
-                Type_Caption_Exists = True
-            End If
-        Next
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type = TypeConstants.caption Then
+                    Type_Caption_Exists = True
+                End If
+            Next
+        End If
+
 
         If Type_Caption_Exists Then
             ' Generate file content for the main parameter list
@@ -1061,11 +1072,14 @@ Public Class Form1
 #Region "State List Generation"
 
         ' Check if this code block should run
-        For Each itm As subparam In MainObjectList.sList.lSubParamList
-            If itm.type = TypeConstants.state Then
-                Type_State_Exists = True
-            End If
-        Next
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type = TypeConstants.state Then
+                    Type_State_Exists = True
+                End If
+            Next
+        End If
+
 
         If Type_State_Exists Then
             ' Generate file content for the main parameter list
@@ -1378,11 +1392,14 @@ Public Class Form1
 #Region "Connection List Generation"
 
         ' Check if this code block should run
-        For Each itm As subparam In MainObjectList.sList.lSubParamList
-            If itm.type = TypeConstants.connection Then
-                Type_Connection_Exists = True
-            End If
-        Next
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type = TypeConstants.connection Then
+                    Type_Connection_Exists = True
+                End If
+            Next
+        End If
+
 
         If Type_Connection_Exists Then
 
@@ -1769,11 +1786,14 @@ Public Class Form1
 #Region "Threshold List Generation"
 
         ' Check if this code block should run
-        For Each itm As subparam In MainObjectList.sList.lSubParamList
-            If itm.type = TypeConstants.Threshold Then
-                Type_Threshold_Exists = True
-            End If
-        Next
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type = TypeConstants.Threshold Then
+                    Type_Threshold_Exists = True
+                End If
+            Next
+        End If
+
 
         If Type_Threshold_Exists Then
             ' Generate file content for the main parameter list

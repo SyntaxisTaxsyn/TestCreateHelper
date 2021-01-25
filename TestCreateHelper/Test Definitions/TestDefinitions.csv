@@ -150,3 +150,13 @@ threshold,thresholdIndex,1,1
 threshold,thresholdValue,50,70
 threshold,fillColor,black,white
 threshold,blink,TRUE,FALSE
+,lineStyle,solid,dash
+,lineWidth,1,2
+,needleWidth,2,3
+,legendColor,black,white
+,needleColor,black,white
+,showLegend,TRUE,FALSE
+,sweepStyle,gradient,point
+,majorTicks,3,4
+,minorTicks,1,2
+,tickDirection,right,left

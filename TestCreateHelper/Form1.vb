@@ -121,6 +121,11 @@ Public Class Form1
                     type = TypeConstants.Threshold
                     typeIsKnown = True
                 End If
+                ' Add new activeX data type handling here
+                If InStr(tstr(a), "<data") Then
+                    type = TypeConstants.Data
+                    typeIsKnown = True
+                End If
                 If Not typeIsKnown Then
                     ' This code will prompt us for any rework required going forward as we encounter new sub types
                     Throw New Exception("Unknown Type Detected, Requires new code to handle" & vbCrLf &
@@ -187,6 +192,9 @@ Public Class Form1
                         MainObjectList.sList.lSubParamList.Add(newSubObject)
                     Case "</"
                     Case ""
+                    Case TypeConstants.Data
+                        Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                        MainObjectList.sList.lSubParamList.Add(newSubObject)
                     Case Else
                         Throw New Exception("Unhandled type detected")
 
@@ -314,10 +322,12 @@ Public Class Form1
         Dim Type_Threshold_Exists As Boolean = False
         Dim Type_Connection_Exists As Boolean = False
         Dim Type_State_Exists As Boolean = False
+        Dim Type_ActiveXData_Exists As Boolean
         Dim StateCount As Integer = 0
         Dim CaptionCount As Integer = 0
         Dim ImageCount As Integer = 0
         Dim ThresholdCount As Integer = 0
+        Dim DataCount As Integer
 
         If MainObjectList.sList IsNot Nothing Then
             OType = ECloseType.Complex
@@ -346,6 +356,21 @@ Public Class Form1
                         ' Enumerate through the sub object children and create those entries for this object instance
                         For Each subp As subparam In MainObjectList.sList.lSubParamList
                             Select Case subp.type
+                                Case TypeConstants.Data
+                                    MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.data,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.data,
+                                                                                     ECloseType.Simple))
                                 Case TypeConstants.Threshold
                                     MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                      EditCase.Left,
@@ -509,8 +534,6 @@ Public Class Form1
         WriteOutputFile(MainFileCSV, GetPathToLocalFile("Output", FnameVar & "main.csv"))
 #End Region
 
-        ' MsgBox("")
-
 #Region "Image List Generation"
 
         ' Check if this code block should run
@@ -586,6 +609,21 @@ Public Class Form1
 
                                 For Each subp As subparam In MainObjectList.sList.lSubParamList
                                     Select Case subp.type
+                                        Case TypeConstants.Data
+                                            ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                            ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
                                         Case TypeConstants.Threshold
                                             ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                              EditCase.Left,
@@ -783,7 +821,6 @@ Public Class Form1
 
 #End Region
 
-
 #Region "Caption List Generation"
 
         ' Check if this code block should run
@@ -871,6 +908,21 @@ Public Class Form1
 
                                 For Each subp As subparam In MainObjectList.sList.lSubParamList
                                     Select Case subp.type
+                                        Case TypeConstants.Data
+                                            CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                            CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
                                         Case TypeConstants.Threshold
                                             CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                              EditCase.Left,
@@ -1144,6 +1196,21 @@ Public Class Form1
 
                                 For Each subp As subparam In MainObjectList.sList.lSubParamList
                                     Select Case subp.type
+                                        Case TypeConstants.Data
+                                            StateFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                            StateFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
                                         Case TypeConstants.Threshold
                                             StateFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                              EditCase.Left,
@@ -1437,6 +1504,21 @@ Public Class Form1
 
                             For Each subp As subparam In MainObjectList.sList.lSubParamList
                                 Select Case subp.type
+                                    Case TypeConstants.Data
+                                        ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.data,
+                                                                                         ECloseType.Simple))
+                                        ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.data,
+                                                                                         ECloseType.Simple))
                                     Case TypeConstants.Threshold
                                         ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                          EditCase.Left,
@@ -1851,6 +1933,21 @@ Public Class Form1
 
                                 For Each subp As subparam In MainObjectList.sList.lSubParamList
                                     Select Case subp.type
+                                        Case TypeConstants.Data
+                                            ThresholdFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                            ThresholdFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
                                         Case TypeConstants.Threshold
                                             If ThresholdCount = Tmask Then
                                                 If Not sparam.sProperty = "thresholdIndex" Then
@@ -2058,6 +2155,295 @@ Public Class Form1
             WriteOutputFile(ThresholdFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_threshold.xml"))
             WriteOutputFile(ThresholdFileListRight, GetPathToLocalFile("Output", FnameVar & "R_threshold.xml"))
             WriteOutputFile(ThresholdFileCSV, GetPathToLocalFile("Output", FnameVar & "threshold.csv"))
+
+
+
+            MsgBox("")
+
+        End If
+
+#End Region
+
+#Region "Active X Data List Generation"
+
+        ' Check if this code block should run
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type = TypeConstants.Data Then
+                    Type_ActiveXData_Exists = True
+                End If
+            Next
+        End If
+
+
+        If Type_ActiveXData_Exists Then
+            ' Generate file content for the main parameter list
+            Dim ActiveXDataFileListLeft As List(Of String) = New List(Of String)
+            Dim ActiveXDataFileListRight As List(Of String) = New List(Of String)
+            Dim ActiveXDataFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
+            FirstCaptionFound = False ' Added to ensure only the first caption type gets processed when dealing with mutlistate objects
+            FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
+            StateCount = 0
+            CaptionCount = 0
+            ThresholdCount = 0
+            DataCount = 0
+            Dim DataMask(10) As Boolean
+            'Dim ThresholdInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.Threshold)
+
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
+
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                ActiveXDataFileListLeft.Add(itm)
+                ActiveXDataFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            ActiveXDataFileCSV.Add("Test number,Property,Left,Right")
+
+            '' Set up caption mask
+            'Select Case ThresholdInstCount
+            '    Case 1
+            '        ThresholdMask(0) = True
+            '        ThresholdMask(1) = False
+            '    Case 2
+            '        ThresholdMask(0) = True
+            '        ThresholdMask(1) = True
+            '    Case Else
+            '        Throw New Exception("Whoops, it appears you didnt think of everything")
+            'End Select
+
+            ' This is active X Data so there will only be 1 data instance but we will maintain the previous framework for ease
+            ' Of code comparison
+            DataMask(0) = True
+            DataMask(1) = False
+
+            ' Loop through the test generation process for as many caption test masks are active
+            For Dmask = 0 To 1
+                If DataMask(Dmask) Then
+                    For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                        If sublist.type = TypeConstants.Data Then
+                            ' This object has a data sub object type so generate an output file for it
+                            For Each sparam As Param In sublist.subParList
+                                ' Generate the main objects data with only left cases
+                                ActiveXDataFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                ActiveXDataFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                                'ActiveXDataFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.caption, TestCount))
+
+                                For Each subp As subparam In MainObjectList.sList.lSubParamList
+                                    Select Case subp.type
+                                        Case TypeConstants.Data
+                                            If DataCount = Dmask Then
+                                                ActiveXDataFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.data, TestCount, ""))
+                                                ActiveXDataFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                              sparam,
+                                                                                              EditCase.Left,
+                                                                                              1,
+                                                                                              TestCount,
+                                                                                              ValuePairList,
+                                                                                              ObjectTestClass.data,
+                                                                                              ECloseType.Simple))
+                                                ActiveXDataFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                              sparam,
+                                                                                              EditCase.Right,
+                                                                                              1,
+                                                                                              TestCount,
+                                                                                              ValuePairList,
+                                                                                              ObjectTestClass.data,
+                                                                                              ECloseType.Simple))
+                                            Else
+                                                ActiveXDataFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                                ActiveXDataFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.data,
+                                                                                                 ECloseType.Simple))
+                                            End If
+                                            DataCount += 1
+
+                                        Case TypeConstants.Threshold
+
+                                            ActiveXDataFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+
+                                            ActiveXDataFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+
+                                        Case TypeConstants.caption
+                                            ActiveXDataFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                            ActiveXDataFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                            CaptionCount += 1
+                                        Case TypeConstants.imageSettings
+
+                                            ActiveXDataFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+
+                                            ActiveXDataFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+                                        Case TypeConstants.connection
+                                            If FirstStateFound Then
+                                                ' Close off the previous state before starting a connection block
+                                                ActiveXDataFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                ActiveXDataFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                ActiveXDataFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                ActiveXDataFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                StatesClosed = True
+                                            End If
+                                            If FirstConnectionFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                ActiveXDataFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                                ActiveXDataFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                                FirstConnectionFound = True
+                                            End If
+                                            ActiveXDataFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             2,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                            ActiveXDataFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                        Case TypeConstants.state
+                                            If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                                ' if this is a subsequent state found after the first then close off the previous state
+                                                ActiveXDataFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                ActiveXDataFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            End If
+                                            If FirstStateFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                ActiveXDataFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                                ActiveXDataFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                                FirstStateFound = True
+                                            End If
+                                            ActiveXDataFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.state,
+                                                                                         ECloseType.Complex))
+                                            ActiveXDataFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                        EditCase.Left,
+                                                                                        2,
+                                                                                        TestCount,
+                                                                                        ValuePairList,
+                                                                                        ObjectTestClass.state,
+                                                                                        ECloseType.Complex))
+                                            StateCount += 1
+                                        Case Else
+                                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End Select
+
+                                Next
+                                If FirstStateFound Then
+                                    If Not StatesClosed Then
+                                        ' handle the case when no connection block is present and the state blocks need closed
+                                        ActiveXDataFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        ActiveXDataFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                        ActiveXDataFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                        ActiveXDataFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                    End If
+                                    StatesClosed = False
+                                    FirstStateFound = False
+                                    StateCount = 0
+                                End If
+                                If FirstConnectionFound Then
+                                    ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                                    ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                                    ' XML object creation that connections always go at the end
+                                    ActiveXDataFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                                    ActiveXDataFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                                    FirstConnectionFound = False
+                                End If
+                                CaptionCount = 0
+                                ThresholdCount = 0
+
+                                ' Close off this XML object
+                                If OType = ECloseType.Complex Then
+                                    ' Requires complex object closure
+                                    ActiveXDataFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                    ActiveXDataFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                                End If
+                                TestCount += 1
+                                FirstCaptionFound = False
+                            Next
+                            Exit For ' added to avoid processing all captions when multiple instances exist as part of state sub objects
+                        End If
+                    Next
+                End If
+            Next
+
+
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                ActiveXDataFileListLeft.Add(itm)
+                ActiveXDataFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(ActiveXDataFileListLeft)
+            FormatXMLFile(ActiveXDataFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(ActiveXDataFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_data.xml"))
+            WriteOutputFile(ActiveXDataFileListRight, GetPathToLocalFile("Output", FnameVar & "R_data.xml"))
+            WriteOutputFile(ActiveXDataFileCSV, GetPathToLocalFile("Output", FnameVar & "data.csv"))
 
 
 
@@ -2278,6 +2664,22 @@ Public Class Form1
                                                                                      TestCount,
                                                                                      ValuePairList,
                                                                                      ObjectTestClass.threshold,
+                                                                                     ECloseType.Simple))
+                Case TypeConstants.Data
+                    ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.data,
+                                                                                     ECloseType.Simple))
+
+                    ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.data,
                                                                                      ECloseType.Simple))
 
                 Case Else
@@ -3129,6 +3531,7 @@ Public Class TypeConstants
     Public Const state As String = "state"
     Public Const stateId As String = "stateId"
     Public Const Threshold As String = "threshold"
+    Public Const Data As String = "data"
 End Class
 
 Public Enum EditCase
@@ -3147,6 +3550,7 @@ Public Class ObjectTestClass
     Public Const connection As String = "connection"
     Public Const state As String = "state"
     Public Const threshold As String = "threshold"
+    Public Const data As String = "data"
 End Class
 
 

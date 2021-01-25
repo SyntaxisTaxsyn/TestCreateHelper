@@ -201,3 +201,10 @@ data,data,AAAEAD0pAABtGQAAAAAAAAwAAAD//v8AAgAAAAEAAAAAAAAAyAAAAAAAAAAAA1LjC5GPzh
 ,displayTagName,TRUE,FALSE
 ,autoRepeatDelay,400,600
 ,autoRepeatRate,1,2
+,domainNameVisible,FALSE,TRUE
+,domainNameDisable,FALSE,TRUE
+,hideUserNameEntry,FALSE,TRUE
+,useVariableDomainName,FALSE,TRUE
+,domainName,text,texts
+,showDisplayOnLogout,FALSE,TRUE
+,modeType,CurrentUserMode,AnyUserMode

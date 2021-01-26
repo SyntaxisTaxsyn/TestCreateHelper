@@ -5,7 +5,7 @@
 ,sizeToFit,TRUE,FALSE
 ,wordWrap,TRUE,FALSE
 ,fontSize,13,11
-,alignment,middleCenter,middleRight
+,alignment,middleCenter,middleLeft
 ,bold,FALSE,TRUE
 ,italic,FALSE,TRUE
 ,underline,FALSE,TRUE
@@ -209,3 +209,11 @@ data,data,AAAEAD0pAABtGQAAAAAAAAwAAAD//v8AAgAAAAEAAAAAAAAAyAAAAAAAAAAAA1LjC5GPzh
 ,showDisplayOnLogout,FALSE,TRUE
 ,modeType,CurrentUserMode,AnyUserMode
 ,writeOnEnter,TRUE,FALSE
+state,access,operatorAndRemote,operator
+,language,en-GB,en-US
+,messageFile,text,texts
+,UseVariableMesssageFile,TRUE,FALSE
+,UseEchoMessage,TRUE,FALSE
+,macro,text,texts
+,UseVariableMacro,FALSE,TRUE
+,timeAndDateFormat,shortDateTime,longDate

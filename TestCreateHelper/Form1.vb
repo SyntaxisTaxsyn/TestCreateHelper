@@ -424,12 +424,15 @@ Public Class Form1
                                                                                      ECloseType.Simple))
                                 Case TypeConstants.connection
                                     If FirstStateFound Then
-                                        ' Close off the previous state before starting a connection block
-                                        MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                                        MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                                        MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                                        MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
-                                        StatesClosed = True
+                                        If Not StatesClosed Then
+                                            ' Close off the previous state before starting a connection block
+                                            MainFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                            MainFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            MainFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                            MainFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                            StatesClosed = True
+                                        End If
+
                                     End If
                                     If FirstConnectionFound = False Then
                                         ' Add an additional line here for the connection xml configuration on the first time only
@@ -999,12 +1002,15 @@ Public Class Form1
                                                                                              ECloseType.Simple))
                                         Case TypeConstants.connection
                                             If FirstStateFound Then
-                                                ' Close off the previous state before starting a connection block
-                                                CaptionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                                                CaptionFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                                                CaptionFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                                                CaptionFileListRight.Add(AddWhiteSpace(1, "</states>"))
-                                                StatesClosed = True
+                                                If Not StatesClosed Then
+                                                    ' Close off the previous state before starting a connection block
+                                                    CaptionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                    CaptionFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                    CaptionFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                    CaptionFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                    StatesClosed = True
+                                                End If
+
                                             End If
                                             If FirstConnectionFound = False Then
                                                 ' Add an additional line here for the connection xml configuration on the first time only
@@ -1142,6 +1148,7 @@ Public Class Form1
             FirstConnectionFound = False
             FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
             StateCount = 0
+            StatesClosed = False
             CaptionCount = 0
             Dim StateMask(10) As Boolean
             Dim StateInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.state)
@@ -1261,12 +1268,15 @@ Public Class Form1
                                                                                              ECloseType.Simple))
                                         Case TypeConstants.connection
                                             If FirstStateFound Then
-                                                ' Close off the previous state before starting a connection block
-                                                StateFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                                                StateFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                                                StateFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                                                StateFileListRight.Add(AddWhiteSpace(1, "</states>"))
-                                                StatesClosed = True
+                                                If Not StatesClosed Then
+                                                    ' Close off the previous state before starting a connection block
+                                                    StateFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                    StateFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                    StateFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                    StateFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                    StatesClosed = True
+                                                End If
+
                                             End If
                                             If FirstConnectionFound = False Then
                                                 ' Add an additional line here for the connection xml configuration on the first time only
@@ -1598,12 +1608,15 @@ Public Class Form1
                                                                                          ECloseType.Simple))
                                     Case TypeConstants.connection
                                         If FirstStateFound Then
-                                            ' Close off the previous state before starting a connection block
-                                            ConnectionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                                            ConnectionFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                                            ConnectionFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                                            ConnectionFileListRight.Add(AddWhiteSpace(1, "</states>"))
-                                            StatesClosed = True
+                                            If Not StatesClosed Then
+                                                ' Close off the previous state before starting a connection block
+                                                ConnectionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                ConnectionFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                ConnectionFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                ConnectionFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                StatesClosed = True
+                                            End If
+
                                         End If
                                         If FirstConnectionFound = False Then
                                             ' Add an additional line here for the connection xml configuration on the first time only
@@ -2041,12 +2054,15 @@ Public Class Form1
                                                                                              ECloseType.Simple))
                                         Case TypeConstants.connection
                                             If FirstStateFound Then
-                                                ' Close off the previous state before starting a connection block
-                                                ThresholdFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                                                ThresholdFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                                                ThresholdFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                                                ThresholdFileListRight.Add(AddWhiteSpace(1, "</states>"))
-                                                StatesClosed = True
+                                                If Not StatesClosed Then
+                                                    ' Close off the previous state before starting a connection block
+                                                    ThresholdFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                                    ThresholdFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                                    ThresholdFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                                    ThresholdFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                                    StatesClosed = True
+                                                End If
+
                                             End If
                                             If FirstConnectionFound = False Then
                                                 ' Add an additional line here for the connection xml configuration on the first time only
@@ -2573,6 +2589,7 @@ Public Class Form1
                                                    ByRef OType As ECloseType)
 
         Dim FirstStateFound As Boolean = False
+        Dim StatesClosed As Boolean = False
 
         ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
         ConnectionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
@@ -2617,10 +2634,13 @@ Public Class Form1
                     ' Close any open states and do not process the connection
                     If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
                         ' if this is a subsequent state found after the first then close off the previous state
-                        ConnectionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
-                        ConnectionFileListRight.Add(AddWhiteSpace(2, "</state>"))
-                        ConnectionFileListLeft.Add(AddWhiteSpace(1, "</states>"))
-                        ConnectionFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                        If Not StatesClosed Then
+                            ConnectionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                            ConnectionFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                            ConnectionFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                            ConnectionFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                            StatesClosed = True
+                        End If
                     End If
                 Case TypeConstants.state
                     If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states

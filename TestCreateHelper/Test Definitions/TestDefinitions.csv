@@ -307,3 +307,4 @@ state,access,operatorAndRemote,operator
 ,columnWidthAuditResource,100,101
 ,columnWidthAuditUsername,100,101
 ,receiveSelectionFrom,text,texts
+,path,100 100 200 200,100 100 200 201

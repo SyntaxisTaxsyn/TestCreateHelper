@@ -308,3 +308,27 @@ state,access,operatorAndRemote,operator
 ,columnWidthAuditUsername,100,101
 ,receiveSelectionFrom,text,texts
 ,path,100 100 200 200,100 100 200 201
+,line,100 100 200 200,100 100 200 201
+animate,expression,text,texts
+animate,expressionTrueState,visible,invisible
+,imageBackStyle,solid,transparent
+,imageBackColor,black,white
+,imageColor,black,white
+,imageBlink,TRUE,FALSE
+animate,blinkRate,2,3
+color,value,0,1
+color,foreBehavior,solid,blink
+color,foreColor1,white,black
+color,foreColor2,white,black
+color,backBehavior,solid,blink
+color,backColor1,white,black
+color,backColor2,white,black
+color,fillColorMode,2,1
+color,endColor,white,black
+color,gradientStop,50,40
+color,gradientDirection,gradientDirectionHorizontal,gradientDirectionVertical
+color,gradientShadingStyle,gradientHorizontalFromRight,gradientVerticalFromTop
+color,fillEndColor,white,black
+color,fillGradientStop,50,40
+color,fillGradientDirection,gradientDirectionHorizontal,gradientDirectionVertical
+color,fillGradientShadingStyle,gradientHorizontalFromRight,gradientVerticalFromTop

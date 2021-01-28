@@ -73,6 +73,7 @@ Public Class Form1
             Dim connectionRRange As Integer = 0
             ' Add state handling variables
             Dim statesPresent As Boolean = False
+
             Dim stateLRange As Integer = 0
             Dim stateRRange As Integer = 0
             ' Add threshold handling variables
@@ -124,6 +125,18 @@ Public Class Form1
                 ' Add new activeX data type handling here
                 If InStr(tstr(a), "<data") Then
                     type = TypeConstants.Data
+                    typeIsKnown = True
+                End If
+                If InStr(tstr(a), "<animations>") Then
+                    type = TypeConstants.Animation
+                    typeIsKnown = True
+                End If
+                If InStr(tstr(a), "<animate") Then
+                    type = TypeConstants.Animate
+                    typeIsKnown = True
+                End If
+                If InStr(tstr(a), "<color") Then
+                    type = TypeConstants.Animate
                     typeIsKnown = True
                 End If
                 If Not typeIsKnown Then
@@ -187,12 +200,20 @@ Public Class Form1
                         Else
                         End If
 
+                    Case TypeConstants.Animate
+                        Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                        MainObjectList.sList.lSubParamList.Add(newSubObject)
+                    Case TypeConstants.Animation
+                        ' Do nothing in here, this just avoids throwinng an exception
                     Case TypeConstants.Threshold
                         Dim newSubObject As subparam = GetSubObjParams(tstr(a))
                         MainObjectList.sList.lSubParamList.Add(newSubObject)
                     Case "</"
                     Case ""
                     Case TypeConstants.Data
+                        Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                        MainObjectList.sList.lSubParamList.Add(newSubObject)
+                    Case TypeConstants.Color
                         Dim newSubObject As subparam = GetSubObjParams(tstr(a))
                         MainObjectList.sList.lSubParamList.Add(newSubObject)
                     Case Else
@@ -272,9 +293,18 @@ Public Class Form1
                     bFoundMatch = False
                     For Each oValPair As ValuePair In ValuePairList
                         If oValPair.name = itm.sProperty Then
-                            If oValPair.oClass = sublist.type Then ' Added this selector in to ensure that value pairs get matched against classes too
-                                bFoundMatch = True
+                            If oValPair.oClass = TypeConstants.Animate Then
+                                ' Handle special case for animation type class objects
+                                If sublist.type Like TypeConstants.Animate & "*" Then
+                                    bFoundMatch = True
+                                End If
+                            Else
+                                ' do the class matching in the normal way
+                                If oValPair.oClass = sublist.type Then ' Added this selector in to ensure that value pairs get matched against classes too
+                                    bFoundMatch = True
+                                End If
                             End If
+
                         End If
                     Next
                     If Not bFoundMatch Then
@@ -314,15 +344,21 @@ Public Class Form1
         Dim OType As ECloseType
         Dim FirstConnectionFound As Boolean = False
         Dim FirstStateFound As Boolean = False
+        Dim FirstAnimationFound As Boolean = False
+        Dim FirstColorFound As Boolean = False
         Dim FirstCaptionFound As Boolean = False
         Dim CaptionIndentLevel As Integer = 1
         Dim StatesClosed As Boolean = False
+        Dim AnimationsClosed As Boolean = False
+        Dim ColorsClosed As Boolean = False
         Dim Type_ImageSettings_Exists As Boolean = False
         Dim Type_Caption_Exists As Boolean = False
         Dim Type_Threshold_Exists As Boolean = False
         Dim Type_Connection_Exists As Boolean = False
         Dim Type_State_Exists As Boolean = False
         Dim Type_ActiveXData_Exists As Boolean
+        Dim Type_Animation_Exists As Boolean = False
+        Dim Type_Color_Exists As Boolean = False
         Dim StateCount As Integer = 0
         Dim CaptionCount As Integer = 0
         Dim ImageCount As Integer = 0
@@ -423,6 +459,22 @@ Public Class Form1
                                                                                      ObjectTestClass.image,
                                                                                      ECloseType.Simple))
                                 Case TypeConstants.connection
+                                    If FirstAnimationFound Then
+                                        If Not AnimationsClosed Then
+                                            If FirstColorFound Then
+                                                If Not ColorsClosed Then
+                                                    ' close off the animatecolor block
+                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                    ColorsClosed = True
+                                                End If
+                                            End If
+                                            ' Add lines here to close off the animation objects
+                                            MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                            MainFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                            AnimationsClosed = True
+                                        End If
+                                    End If
                                     If FirstStateFound Then
                                         If Not StatesClosed Then
                                             ' Close off the previous state before starting a connection block
@@ -480,11 +532,78 @@ Public Class Form1
                                                                                     ValuePairList,
                                                                                     ObjectTestClass.state,
                                                                                     ECloseType.Complex))
-
+                                Case TypeConstants.Color
+                                    If FirstColorFound = False Then
+                                        FirstColorFound = True
+                                    End If
+                                    MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.color,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.color,
+                                                                                    ECloseType.Simple))
                                 Case Else
-                                    Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    ' Handle the animation types in here as we will be bundling all types into the same class hence a like
+                                    ' comparison operator is used to check the object class type
+                                    If subp.type Like TypeConstants.Animate & "*" Then
+                                        If FirstAnimationFound = False Then
+                                            ' Add an additional line here for the connection xml configuration on the first time only
+                                            MainFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                                            MainFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                                            FirstAnimationFound = True
+                                        End If
+                                        Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                        MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                        MainFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                    Else
+                                        Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End If
+
                             End Select
                         Next
+                        If FirstAnimationFound Then
+                            If Not AnimationsClosed Then
+                                If FirstColorFound Then
+                                    If Not ColorsClosed Then
+                                        ' close off the animatecolor block
+                                        MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                        MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                        ColorsClosed = True
+                                    End If
+                                End If
+                                ' Add lines here to close off the animation objects
+                                MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                MainFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                AnimationsClosed = True
+                            End If
+                        End If
+
+                        ' Reset first found and closed tag monitors here
+                        FirstAnimationFound = False
+                        AnimationsClosed = False
+                        ColorsClosed = False
+                        FirstColorFound = False
+
                         If FirstStateFound Then
                             If Not StatesClosed Then
                                 ' handle the case when no connection block is present and the state blocks need closed
@@ -2180,6 +2299,675 @@ Public Class Form1
 
 #End Region
 
+#Region "Animations List Generation"
+
+        ' Check if this code block should run
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type Like TypeConstants.Animate & "*" Then
+                    Type_Animation_Exists = True
+                End If
+            Next
+        End If
+
+
+        If Type_Animation_Exists Then
+            ' Generate file content for the main parameter list
+            Dim AnimationFileListLeft As List(Of String) = New List(Of String)
+            Dim AnimationFileListRight As List(Of String) = New List(Of String)
+            Dim AnimationFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
+            FirstCaptionFound = False ' Added to ensure only the first caption type gets processed when dealing with mutlistate objects
+            FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
+            StateCount = 0
+            CaptionCount = 0
+            ThresholdCount = 0
+            FirstAnimationFound = 0
+            AnimationsClosed = False
+            Dim ThresholdMask(10) As Boolean
+            Dim ThresholdInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.Threshold)
+
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
+
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                AnimationFileListLeft.Add(itm)
+                AnimationFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            AnimationFileCSV.Add("Test number,Property,Left,Right")
+
+            ' Loop through the test generation process for as many caption test masks are active
+            For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                If sublist.type Like TypeConstants.Animate & "*" Then
+                    ' This object has an animation sub object type so generate an output file for it
+                    For Each sparam As Param In sublist.subParList
+                        ' Generate the main objects data with only left cases
+                        AnimationFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                        AnimationFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+
+                        For Each subp As subparam In MainObjectList.sList.lSubParamList
+                            Select Case subp.type
+                                Case TypeConstants.Data
+                                    AnimationFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                    AnimationFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                Case TypeConstants.Threshold
+                                    AnimationFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                    AnimationFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.threshold,
+                                                                                                 ECloseType.Simple))
+                                    ThresholdCount += 1
+
+                                Case TypeConstants.caption
+                                    AnimationFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                    AnimationFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                    CaptionCount += 1
+                                Case TypeConstants.imageSettings
+
+                                    AnimationFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+
+                                    AnimationFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+                                Case TypeConstants.connection
+                                    If FirstAnimationFound Then
+                                        If Not AnimationsClosed Then
+                                            If FirstColorFound Then
+                                                If Not ColorsClosed Then
+                                                    ' close off the animatecolor block
+                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                    ColorsClosed = True
+                                                End If
+                                            End If
+                                            ' Add lines here to close off the animation objects
+                                            MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                            MainFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                            AnimationsClosed = True
+                                        End If
+                                    End If
+                                    If FirstStateFound Then
+                                        If Not StatesClosed Then
+                                            ' Close off the previous state before starting a connection block
+                                            AnimationFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                            AnimationFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            AnimationFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                            AnimationFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                            StatesClosed = True
+                                        End If
+
+                                    End If
+                                    If FirstConnectionFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        AnimationFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                        AnimationFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                        FirstConnectionFound = True
+                                    End If
+                                    AnimationFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             2,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                    AnimationFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                Case TypeConstants.state
+                                    If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                        ' if this is a subsequent state found after the first then close off the previous state
+                                        AnimationFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        AnimationFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                    End If
+                                    If FirstStateFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        AnimationFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                        AnimationFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                        FirstStateFound = True
+                                    End If
+                                    AnimationFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.state,
+                                                                                         ECloseType.Complex))
+                                    AnimationFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                        EditCase.Left,
+                                                                                        2,
+                                                                                        TestCount,
+                                                                                        ValuePairList,
+                                                                                        ObjectTestClass.state,
+                                                                                        ECloseType.Complex))
+                                    StateCount += 1
+                                Case TypeConstants.Color
+                                    If FirstColorFound = False Then
+                                        FirstColorFound = True
+                                    End If
+                                    AnimationFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.color,
+                                                                                     ECloseType.Simple))
+                                    AnimationFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.color,
+                                                                                    ECloseType.Simple))
+                                Case Else
+                                    If subp.type Like TypeConstants.Animate & "*" Then
+                                        If FirstAnimationFound = False Then
+                                            ' Add an additional line here for the connection xml configuration on the first time only
+                                            AnimationFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                                            AnimationFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                                            FirstAnimationFound = True
+                                        End If
+                                        Dim Addstr As String = GetAddStrByAnimationType(sublist.type)
+                                        Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                        AnimationFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.animate, TestCount, Addstr))
+                                        AnimationFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                              sparam,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.animate,
+                                                                                                 SelectEcloseType))
+
+                                        AnimationFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                              sparam,
+                                                                                                 EditCase.Right,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.animate,
+                                                                                                 SelectEcloseType))
+                                    Else
+                                        Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End If
+                            End Select
+
+                        Next
+                        If FirstAnimationFound Then
+                            If Not AnimationsClosed Then
+                                If FirstColorFound Then
+                                    If Not ColorsClosed Then
+                                        ' close off the animatecolor block
+                                        AnimationFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                        AnimationFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                        ColorsClosed = True
+                                    End If
+                                End If
+                                ' Add lines here to close off the animation objects
+                                AnimationFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                AnimationFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                AnimationsClosed = True
+                            End If
+                        End If
+                        FirstAnimationFound = False
+                        AnimationsClosed = False
+                        ColorsClosed = False
+                        FirstColorFound = False
+                        If FirstStateFound Then
+                            If Not StatesClosed Then
+                                ' handle the case when no connection block is present and the state blocks need closed
+                                AnimationFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                AnimationFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                AnimationFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                AnimationFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                            End If
+                            StatesClosed = False
+                            FirstStateFound = False
+                            StateCount = 0
+                        End If
+                        If FirstConnectionFound Then
+                            ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                            ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                            ' XML object creation that connections always go at the end
+                            AnimationFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                            AnimationFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                            FirstConnectionFound = False
+                        End If
+                        CaptionCount = 0
+                        ThresholdCount = 0
+
+                        ' Close off this XML object
+                        If OType = ECloseType.Complex Then
+                            ' Requires complex object closure
+                            AnimationFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            AnimationFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                        End If
+                        TestCount += 1
+                        FirstCaptionFound = False
+                    Next
+                    ' This exit for is removed as we want to generate content for all animation type objects found in the test
+                    'Exit For ' added to avoid processing all captions when multiple instances exist as part of state sub objects
+                End If
+            Next
+
+
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                AnimationFileListLeft.Add(itm)
+                AnimationFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(AnimationFileListLeft)
+            FormatXMLFile(AnimationFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(AnimationFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_animate.xml"))
+            WriteOutputFile(AnimationFileListRight, GetPathToLocalFile("Output", FnameVar & "R_animate.xml"))
+            WriteOutputFile(AnimationFileCSV, GetPathToLocalFile("Output", FnameVar & "animate.csv"))
+
+
+
+            MsgBox("")
+
+        End If
+
+#End Region
+
+#Region "Color List Generation"
+
+        ' Check if this code block should run
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                If itm.type Like TypeConstants.Color & "*" Then
+                    Type_Color_Exists = True
+                End If
+            Next
+        End If
+
+
+        If Type_Color_Exists Then
+            ' Generate file content for the main parameter list
+            Dim AnimationColorFileListLeft As List(Of String) = New List(Of String)
+            Dim AnimationColorFileListRight As List(Of String) = New List(Of String)
+            Dim AnimationColorFileCSV As List(Of String) = New List(Of String)
+            Dim ColorCount As Integer = 0
+            TestCount = 1
+            FirstConnectionFound = False
+            FirstCaptionFound = False ' Added to ensure only the first caption type gets processed when dealing with mutlistate objects
+            FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
+            StateCount = 0
+            CaptionCount = 0
+            ThresholdCount = 0
+            FirstAnimationFound = 0
+            AnimationsClosed = False
+            Dim ThresholdMask(10) As Boolean
+            Dim ThresholdInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.Threshold)
+
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
+
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                AnimationColorFileListLeft.Add(itm)
+                AnimationColorFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            AnimationColorFileCSV.Add("Test number,Property,Left,Right")
+
+            ' Loop through the test generation process for as many caption test masks are active
+            For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                If sublist.type Like TypeConstants.Color Then
+                    ' This object has an animation sub object type so generate an output file for it
+                    For Each sparam As Param In sublist.subParList
+                        ' Generate the main objects data with only left cases
+                        AnimationColorFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                        AnimationColorFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+
+                        For Each subp As subparam In MainObjectList.sList.lSubParamList
+                            Select Case subp.type
+                                Case TypeConstants.Data
+                                    AnimationColorFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                    AnimationColorFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                Case TypeConstants.Threshold
+                                    AnimationColorFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                    AnimationColorFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.threshold,
+                                                                                                 ECloseType.Simple))
+                                    ThresholdCount += 1
+
+                                Case TypeConstants.caption
+                                    AnimationColorFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                    AnimationColorFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                    CaptionCount += 1
+                                Case TypeConstants.imageSettings
+
+                                    AnimationColorFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+
+                                    AnimationColorFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+                                Case TypeConstants.connection
+                                    If FirstAnimationFound Then
+                                        If Not AnimationsClosed Then
+                                            If FirstColorFound Then
+                                                If Not ColorsClosed Then
+                                                    ' close off the animatecolor block
+                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                    ColorsClosed = True
+                                                End If
+                                            End If
+                                            ' Add lines here to close off the animation objects
+                                            MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                            MainFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                            AnimationsClosed = True
+                                        End If
+                                    End If
+                                    If FirstStateFound Then
+                                        If Not StatesClosed Then
+                                            ' Close off the previous state before starting a connection block
+                                            AnimationColorFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                            AnimationColorFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            AnimationColorFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                            AnimationColorFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                            StatesClosed = True
+                                        End If
+
+                                    End If
+                                    If FirstConnectionFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        AnimationColorFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                        AnimationColorFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                        FirstConnectionFound = True
+                                    End If
+                                    AnimationColorFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             2,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                    AnimationColorFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                Case TypeConstants.state
+                                    If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                        ' if this is a subsequent state found after the first then close off the previous state
+                                        AnimationColorFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        AnimationColorFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                    End If
+                                    If FirstStateFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        AnimationColorFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                        AnimationColorFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                        FirstStateFound = True
+                                    End If
+                                    AnimationColorFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.state,
+                                                                                         ECloseType.Complex))
+                                    AnimationColorFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                        EditCase.Left,
+                                                                                        2,
+                                                                                        TestCount,
+                                                                                        ValuePairList,
+                                                                                        ObjectTestClass.state,
+                                                                                        ECloseType.Complex))
+                                    StateCount += 1
+                                Case TypeConstants.Color
+                                    If FirstColorFound = False Then
+                                        FirstColorFound = True
+                                    End If
+                                    ' Add test case for this image only
+                                    Dim Addstr As String = GetAddStrByAnimationType(sublist.type)
+                                    Addstr &= ColorCount.ToString & " - "
+                                    AnimationColorFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.color, TestCount, Addstr, subp.type))
+                                    ' Only substitute params in the first image object
+                                    AnimationColorFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                      sparam,
+                                                                                      EditCase.Left,
+                                                                                      CaptionIndentLevel,
+                                                                                      TestCount,
+                                                                                      ValuePairList,
+                                                                                      ObjectTestClass.color,
+                                                                                      ECloseType.Simple))
+
+                                    AnimationColorFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                          sparam,
+                                                                                          EditCase.Right,
+                                                                                          CaptionIndentLevel,
+                                                                                          TestCount,
+                                                                                          ValuePairList,
+                                                                                          ObjectTestClass.color,
+                                                                                          ECloseType.Simple))
+                                    ColorCount += 1
+                                Case Else
+                                    If subp.type Like TypeConstants.Animate & "*" Then
+                                        If FirstAnimationFound = False Then
+                                            ' Add an additional line here for the connection xml configuration on the first time only
+                                            AnimationColorFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                                            AnimationColorFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                                            FirstAnimationFound = True
+                                        End If
+                                        Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                        AnimationColorFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                        AnimationColorFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                    Else
+                                        Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End If
+                            End Select
+                        Next
+                        ColorCount = 0
+                        If FirstAnimationFound Then
+                            If Not AnimationsClosed Then
+                                If FirstColorFound Then
+                                    If Not ColorsClosed Then
+                                        ' close off the animatecolor block
+                                        AnimationColorFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                        AnimationColorFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                        ColorsClosed = True
+                                    End If
+                                End If
+                                ' Add lines here to close off the animation objects
+                                AnimationColorFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                AnimationColorFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                AnimationsClosed = True
+                            End If
+                        End If
+                        FirstAnimationFound = False
+                        AnimationsClosed = False
+                        ColorsClosed = False
+                        FirstColorFound = False
+                        If FirstStateFound Then
+                            If Not StatesClosed Then
+                                ' handle the case when no connection block is present and the state blocks need closed
+                                AnimationColorFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                AnimationColorFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                AnimationColorFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                AnimationColorFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                            End If
+                            StatesClosed = False
+                            FirstStateFound = False
+                            StateCount = 0
+                        End If
+                        If FirstConnectionFound Then
+                            ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                            ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                            ' XML object creation that connections always go at the end
+                            AnimationColorFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                            AnimationColorFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                            FirstConnectionFound = False
+                        End If
+                        CaptionCount = 0
+                        ThresholdCount = 0
+
+                        ' Close off this XML object
+                        If OType = ECloseType.Complex Then
+                            ' Requires complex object closure
+                            AnimationColorFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            AnimationColorFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                        End If
+                        TestCount += 1
+                        FirstCaptionFound = False
+                    Next
+                    ' This exit for is removed as we want to generate content for all animation color type objects found in the test
+                    Exit For ' added to avoid processing all captions when multiple instances exist as part of state sub objects
+                End If
+            Next
+
+
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                AnimationColorFileListLeft.Add(itm)
+                AnimationColorFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(AnimationColorFileListLeft)
+            FormatXMLFile(AnimationColorFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            WriteOutputFile(AnimationColorFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_animatecolor.xml"))
+            WriteOutputFile(AnimationColorFileListRight, GetPathToLocalFile("Output", FnameVar & "R_animatecolor.xml"))
+            WriteOutputFile(AnimationColorFileCSV, GetPathToLocalFile("Output", FnameVar & "animatecolor.csv"))
+
+
+
+            MsgBox("")
+
+        End If
+
+#End Region
+
 #Region "Active X Data List Generation"
 
         ' Check if this code block should run
@@ -2476,6 +3264,32 @@ Public Class Form1
 
     End Sub
 
+    Public Function GetAnimationEcloseType(ByRef AnimationObjType As String) As ECloseType
+        Select Case AnimationObjType
+            Case "animateVisibility"
+                Return ECloseType.Simple
+            Case "animateColor"
+                Return ECloseType.Complex
+            Case Else
+                Throw New Exception("Animation type not handled, please add manually and retry")
+                Return ECloseType.Simple
+        End Select
+    End Function
+
+    Public Function GetAddStrByAnimationType(ByRef AnimType As String) As String
+        Select Case AnimType
+            Case "animateVisibility"
+                Return "Visibility-"
+            Case "animateColor"
+                Return "Color-"
+            Case "color"
+                Return "Animate Color Item:"
+            Case Else
+                Throw New Exception("Animation type not handled, please add manually and retry")
+                Return ""
+        End Select
+    End Function
+
     Public Function CountObjectInstance(ByRef MainObjectList As ParamList, ByRef TConst As String) As Integer
         Dim i As Integer = 0
         Dim iSTR As String = TConst
@@ -2590,12 +3404,35 @@ Public Class Form1
 
         Dim FirstStateFound As Boolean = False
         Dim StatesClosed As Boolean = False
+        Dim FirstAnimationFound As Boolean = False
+        Dim AnimationsClosed As Boolean = False
 
         ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
         ConnectionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
 
         For Each subp As subparam In MainObjectList.sList.lSubParamList
             Select Case subp.type
+                Case TypeConstants.Animate
+                    If FirstAnimationFound = False Then
+                        ' Add an additional line here for the connection xml configuration on the first time only
+                        ConnectionFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                        ConnectionFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                        FirstAnimationFound = True
+                    End If
+                    ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.animate,
+                                                                                     ECloseType.Simple))
+                    ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     1,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.animate,
+                                                                                     ECloseType.Simple))
                 Case TypeConstants.caption
                     ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                      EditCase.Left,
@@ -2642,7 +3479,13 @@ Public Class Form1
                             StatesClosed = True
                         End If
                     End If
-                Case TypeConstants.state
+                    If FirstAnimationFound Then
+                        If Not AnimationsClosed Then
+                            ConnectionFileListLeft.Add(AddWhiteSpace(2, "</animations>"))
+                            ConnectionFileListRight.Add(AddWhiteSpace(2, "</animations>"))
+                        End If
+                    End If
+                        Case TypeConstants.state
                     If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
                         ' if this is a subsequent state found after the first then close off the previous state
                         ConnectionFileListLeft.Add(AddWhiteSpace(2, "</state>"))
@@ -2711,8 +3554,8 @@ Public Class Form1
 
     Public Sub FormatXMLFile(ByRef Flist As List(Of String))
         For a = 0 To Flist.Count - 1
-            Flist.Item(a) = Flist.Item(a).Replace("True", "true")
-            Flist.Item(a) = Flist.Item(a).Replace("False", "false")
+            Flist.Item(a) = Flist.Item(a).Replace("=""True", "=""true")
+            Flist.Item(a) = Flist.Item(a).Replace("=""False", "=""false")
         Next
     End Sub
 
@@ -2797,6 +3640,71 @@ Public Class Form1
             Case "value"
                 LparVal = "0" ' Use original value from object
                 RparVal = "-1" ' fixed value from the other special case handler
+            Case "thresholdIndex"
+                ' retain original values
+                LparVal = Par.sValue
+                RparVal = Par.sValue
+            Case Else
+                ' Gather test values in the normal fashion 
+                LparVal = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Left)
+                RparVal = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Right)
+        End Select
+        ' Handle special case of alignment property and value
+        If Par.sProperty = "alignment" Then
+
+
+
+        Else
+
+        End If
+
+        tstr = Tcase.ToString & "," & AddDescription & ParName & "," & LparVal & "," & RparVal
+        CreateTestCaseByTestNumber = tstr
+
+    End Function
+
+    Public Function CreateTestCaseByTestNumber(ByRef Par As Param,
+                                               ByRef Tlist As List(Of ValuePair),
+                                               ByRef oClass As String,
+                                               ByRef Tcase As Integer,
+                                               ByRef AddDescription As String,
+                                               ByRef ParentType As String) As String
+        Dim AlignmentType As String = ""
+        Dim tstr As String = ""
+        Dim LparVal As String
+        Dim RparVal As String
+        Dim ParName As String = Par.sProperty
+
+        ' Handle special cases of test values for certain edge cases
+        Select Case Par.sProperty
+            Case "alignment"
+                Select Case Par.sValue
+                    Case "left"
+                        AlignmentType = "simple"
+                    Case "center"
+                        AlignmentType = "simple"
+                    Case "right"
+                        AlignmentType = "simple"
+                    Case Else
+                        AlignmentType = "complex"
+                End Select
+
+                If AlignmentType = "simple" Then
+                    LparVal = "center"
+                    RparVal = "left"
+                Else
+                    LparVal = "middleCenter"
+                    RparVal = "middleLeft"
+                End If
+            Case "value"
+                If Not ParentType = TypeConstants.Color Then
+                    LparVal = "0" ' Use original value from object
+                    RparVal = "-1" ' fixed value from the other special case handler
+                Else
+                    LparVal = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Left)
+                    RparVal = GetParameterValueByCase(Par, Tlist, oClass, EditCase.Right)
+                End If
+
             Case "thresholdIndex"
                 ' retain original values
                 LparVal = Par.sValue
@@ -2932,7 +3840,17 @@ Public Class Form1
 
         ' Begin creating the xml object string
         tstr &= "<" & parList.type & " "
-        tstr &= "name=""" & parList.type & "_Test" & TestInst & """ "
+
+        Dim CheckAnimationType As Boolean
+        Select Case True
+            Case parList.type Like "animate*"
+                CheckAnimationType = True
+        End Select
+
+        If Not CheckAnimationType Then
+            tstr &= "name=""" & parList.type & "_Test" & TestInst & """ "
+        End If
+
 
         ' Loop through each property of the XML object and create an entry for it in the XML string
         ' Find the 1 property whose value needs to be changed and substitute its matching right value from the valuepair list
@@ -3552,6 +4470,9 @@ Public Class TypeConstants
     Public Const stateId As String = "stateId"
     Public Const Threshold As String = "threshold"
     Public Const Data As String = "data"
+    Public Const Animation As String = "animation"
+    Public Const Animate As String = "animate"
+    Public Const Color As String = "color"
 End Class
 
 Public Enum EditCase
@@ -3571,152 +4492,8 @@ Public Class ObjectTestClass
     Public Const state As String = "state"
     Public Const threshold As String = "threshold"
     Public Const data As String = "data"
-End Class
-
-
-
-Public Class oldcode
-    Public Sub oldcode()
-#Region "Image List Generation"
-
-        '' Check if this code block should run
-        'For Each itm As subparam In MainObjectList.sList.lSubParamList
-        '    If itm.type = TypeConstants.imageSettings Then
-        '        Type_ImageSettings_Exists = True
-        '    End If
-        'Next
-
-        'If Type_ImageSettings_Exists Then
-        '    ' Generate file content for the main parameter list
-        '    Dim ImageFileListLeft As List(Of String) = New List(Of String)
-        '    Dim ImageFileListRight As List(Of String) = New List(Of String)
-        '    Dim ImageFileCSV As List(Of String) = New List(Of String)
-        '    TestCount = 1
-        '    FirstConnectionFound = False
-
-        '    If MainObjectList.sList IsNot Nothing Then
-        '        OType = ECloseType.Complex
-        '    Else
-        '        OType = ECloseType.Simple
-        '    End If
-
-        '    ' Initialise the left and right file lists with the header content
-        '    For Each itm As String In HeaderList
-        '        ImageFileListLeft.Add(itm)
-        '        ImageFileListRight.Add(itm)
-        '    Next
-
-        '    ' Initialise the CSV test definition file list
-        '    ImageFileCSV.Add("Test number,Property,Left,Right")
-
-        '    For Each sublist As subparam In MainObjectList.sList.lSubParamList
-        '        If sublist.type = TypeConstants.imageSettings Then
-        '            ' This object has an imagesettings sub object type so generate an output file for it
-        '            For Each sparam As Param In sublist.subParList
-        '                ' Generate the main objects data with only left cases
-        '                ImageFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-        '                ImageFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
-        '                ImageFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.image, TestCount))
-
-        '                For Each subp As subparam In MainObjectList.sList.lSubParamList
-        '                    Select Case subp.type
-        '                        Case TypeConstants.caption
-        '                            ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-        '                                                                                 EditCase.Left,
-        '                                                                                 1,
-        '                                                                                 TestCount,
-        '                                                                                 ValuePairList,
-        '                                                                                 ObjectTestClass.caption,
-        '                                                                                 ECloseType.Simple))
-        '                            ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
-        '                                                                                 EditCase.Left,
-        '                                                                                 1,
-        '                                                                                 TestCount,
-        '                                                                                 ValuePairList,
-        '                                                                                 ObjectTestClass.caption,
-        '                                                                                 ECloseType.Simple))
-        '                        Case TypeConstants.imageSettings
-        '                            ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
-        '                                                                                  sparam,
-        '                                                                                  EditCase.Left,
-        '                                                                                  1,
-        '                                                                                  TestCount,
-        '                                                                                  ValuePairList,
-        '                                                                                  ObjectTestClass.image,
-        '                                                                                  ECloseType.Simple))
-
-        '                            ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
-        '                                                                                  sparam,
-        '                                                                                  EditCase.Right,
-        '                                                                                  1,
-        '                                                                                  TestCount,
-        '                                                                                  ValuePairList,
-        '                                                                                  ObjectTestClass.image,
-        '                                                                                  ECloseType.Simple))
-        '                        Case TypeConstants.connection
-        '                            If FirstConnectionFound = False Then
-        '                                ' Add an additional line here for the connection xml configuration on the first time only
-        '                                ImageFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
-        '                                ImageFileListRight.Add(AddWhiteSpace(1, "<connections>"))
-        '                                FirstConnectionFound = True
-        '                            End If
-        '                            ImageFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
-        '                                                                                 EditCase.Left,
-        '                                                                                 2,
-        '                                                                                 TestCount,
-        '                                                                                 ValuePairList,
-        '                                                                                 ObjectTestClass.caption,
-        '                                                                                 ECloseType.Simple))
-        '                            ImageFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
-        '                                                                                EditCase.Left,
-        '                                                                                2,
-        '                                                                                TestCount,
-        '                                                                                ValuePairList,
-        '                                                                                ObjectTestClass.caption,
-        '                                                                                ECloseType.Simple))
-        '                        Case Else
-        '                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
-        '                    End Select
-        '                Next
-        '                If FirstConnectionFound Then
-        '                    ' We know at least 1 connection has been defined and so we must close off the connections xml object group
-        '                    ' We do this at the end of the sub group iteration because we know by observation of the ME software
-        '                    ' XML object creation that connections always go at the end
-        '                    ImageFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
-        '                    ImageFileListRight.Add(AddWhiteSpace(1, "</connections>"))
-        '                    FirstConnectionFound = False
-        '                End If
-
-        '                ' Close off this XML object
-        '                If OType = ECloseType.Complex Then
-        '                    ' Requires complex object closure
-        '                    ImageFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-        '                    ImageFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
-        '                End If
-        '                TestCount += 1
-        '            Next
-        '        End If
-        '    Next
-
-        '    ' Close off the files with the footer
-        '    For Each itm As String In FooterList
-        '        ImageFileListLeft.Add(itm)
-        '        ImageFileListRight.Add(itm)
-        '    Next
-
-        '    'Format output file contents prior to writing
-        '    FormatXMLFile(ImageFileListLeft)
-        '    FormatXMLFile(ImageFileListRight)
-
-        '    'Dim FnameVar As String = InputBox("Enter Output file name", "")
-
-        '    WriteOutputFile(ImageFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_image.xml"))
-        '    WriteOutputFile(ImageFileListRight, GetPathToLocalFile("Output", FnameVar & "R_image.xml"))
-        '    WriteOutputFile(ImageFileCSV, GetPathToLocalFile("Output", FnameVar & "image.csv"))
-        'End If
-
-#End Region
-    End Sub
+    Public Const animate As String = "animate"
+    Public Const color As String = "color"
 End Class
 
 

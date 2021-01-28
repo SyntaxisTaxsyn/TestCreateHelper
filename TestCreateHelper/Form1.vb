@@ -139,6 +139,18 @@ Public Class Form1
                     type = TypeConstants.Animate
                     typeIsKnown = True
                 End If
+                If InStr(tstr(a), "readFromTagExpressionRange") Then
+                    type = TypeConstants.readFromTagExpressionRange
+                    typeIsKnown = True
+                End If
+                If InStr(tstr(a), "constantExpressionRange") Then
+                    type = TypeConstants.constantExpressionRange
+                    typeIsKnown = True
+                End If
+                If InStr(tstr(a), "defaultExpressionRange") Then
+                    type = TypeConstants.defaultExpressionRange
+                    typeIsKnown = True
+                End If
                 If Not typeIsKnown Then
                     ' This code will prompt us for any rework required going forward as we encounter new sub types
                     Throw New Exception("Unknown Type Detected, Requires new code to handle" & vbCrLf &
@@ -214,6 +226,15 @@ Public Class Form1
                         Dim newSubObject As subparam = GetSubObjParams(tstr(a))
                         MainObjectList.sList.lSubParamList.Add(newSubObject)
                     Case TypeConstants.Color
+                        Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                        MainObjectList.sList.lSubParamList.Add(newSubObject)
+                    Case TypeConstants.readFromTagExpressionRange
+                        Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                        MainObjectList.sList.lSubParamList.Add(newSubObject)
+                    Case TypeConstants.constantExpressionRange
+                        Dim newSubObject As subparam = GetSubObjParams(tstr(a))
+                        MainObjectList.sList.lSubParamList.Add(newSubObject)
+                    Case TypeConstants.defaultExpressionRange
                         Dim newSubObject As subparam = GetSubObjParams(tstr(a))
                         MainObjectList.sList.lSubParamList.Add(newSubObject)
                     Case Else
@@ -358,12 +379,14 @@ Public Class Form1
         Dim Type_State_Exists As Boolean = False
         Dim Type_ActiveXData_Exists As Boolean
         Dim Type_Animation_Exists As Boolean = False
+        Dim Type_ExpressionRange_Exists As Boolean = True
         Dim Type_Color_Exists As Boolean = False
         Dim StateCount As Integer = 0
         Dim CaptionCount As Integer = 0
         Dim ImageCount As Integer = 0
         Dim ThresholdCount As Integer = 0
         Dim DataCount As Integer
+        Dim TagToClose As String = ""
 
         If MainObjectList.sList IsNot Nothing Then
             OType = ECloseType.Complex
@@ -461,13 +484,18 @@ Public Class Form1
                                 Case TypeConstants.connection
                                     If FirstAnimationFound Then
                                         If Not AnimationsClosed Then
-                                            If FirstColorFound Then
-                                                If Not ColorsClosed Then
-                                                    ' close off the animatecolor block
-                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
-                                                    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
-                                                    ColorsClosed = True
-                                                End If
+                                            'If FirstColorFound Then
+                                            '    If Not ColorsClosed Then
+                                            '        ' close off the animatecolor block
+                                            '        MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                            '        MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                            '        ColorsClosed = True
+                                            '    End If
+                                            'End If
+                                            If Not TagToClose = "" Then
+                                                MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                TagToClose = ""
                                             End If
                                             ' Add lines here to close off the animation objects
                                             MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
@@ -550,6 +578,51 @@ Public Class Form1
                                                                                     ValuePairList,
                                                                                     ObjectTestClass.color,
                                                                                     ECloseType.Simple))
+                                Case TypeConstants.readFromTagExpressionRange
+                                    MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.readfromtagexpressionrange,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.readfromtagexpressionrange,
+                                                                                    ECloseType.Simple))
+                                Case TypeConstants.constantExpressionRange
+                                    MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.constantexpressionrange,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.constantexpressionrange,
+                                                                                    ECloseType.Simple))
+                                Case TypeConstants.defaultExpressionRange
+                                    MainFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.defaultexpressionrange,
+                                                                                     ECloseType.Simple))
+                                    MainFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.defaultexpressionrange,
+                                                                                    ECloseType.Simple))
                                 Case Else
                                     ' Handle the animation types in here as we will be bundling all types into the same class hence a like
                                     ' comparison operator is used to check the object class type
@@ -561,6 +634,38 @@ Public Class Form1
                                             FirstAnimationFound = True
                                         End If
                                         Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                        If SelectEcloseType = ECloseType.Complex Then
+                                            ' Store the name of the animation tag so we can close it later
+                                            ' Also check if the tag to store has changed so we can close previous tags
+                                            If Not TagToClose = "" Then
+                                                ' case when closing tag already exists
+                                                If TagToClose = subp.type Then
+                                                    ' Do nothing because this is the same type as before, it will be closed at the end
+                                                    ' Of the main loop
+                                                Else
+                                                    ' It is a different type, close out the old one and start a new tag
+                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    TagToClose = subp.type
+                                                    MainFileListLeft.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                    MainFileListRight.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                End If
+                                            Else
+                                                ' tagtoclose not set yet so update it with current type
+                                                TagToClose = subp.type
+                                            End If
+                                        Else
+                                            ' Upon encountering a simple type check if a previous complex type needs closed first
+                                            If Not TagToClose = "" Then
+                                                ' a previous tag needs closed first
+                                                MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                TagToClose = "" ' this lets us know on the next loop that nothing requires closing
+                                            Else
+                                                ' Do nothing
+                                                ' no tags opened to be closed and this is a simple type so just deal with it normally
+                                            End If
+                                        End If
                                         MainFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                          EditCase.Left,
                                                                                          1,
@@ -583,13 +688,18 @@ Public Class Form1
                         Next
                         If FirstAnimationFound Then
                             If Not AnimationsClosed Then
-                                If FirstColorFound Then
-                                    If Not ColorsClosed Then
-                                        ' close off the animatecolor block
-                                        MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
-                                        MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
-                                        ColorsClosed = True
-                                    End If
+                                'If FirstColorFound Then
+                                '    If Not ColorsClosed Then
+                                '        ' close off the animatecolor block
+                                '        MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                '        MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                '        ColorsClosed = True
+                                '    End If
+                                'End If
+                                If Not TagToClose = "" Then
+                                    MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    TagToClose = ""
                                 End If
                                 ' Add lines here to close off the animation objects
                                 MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
@@ -2425,11 +2535,16 @@ Public Class Form1
                                     If FirstAnimationFound Then
                                         If Not AnimationsClosed Then
                                             If FirstColorFound Then
-                                                If Not ColorsClosed Then
-                                                    ' close off the animatecolor block
-                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
-                                                    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
-                                                    ColorsClosed = True
+                                                'If Not ColorsClosed Then
+                                                '    ' close off the animatecolor block
+                                                '    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                '    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                '    ColorsClosed = True
+                                                'End If
+                                                If Not TagToClose = "" Then
+                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    TagToClose = ""
                                                 End If
                                             End If
                                             ' Add lines here to close off the animation objects
@@ -2514,6 +2629,51 @@ Public Class Form1
                                                                                     ValuePairList,
                                                                                     ObjectTestClass.color,
                                                                                     ECloseType.Simple))
+                                Case TypeConstants.readFromTagExpressionRange
+                                    AnimationFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.readfromtagexpressionrange,
+                                                                                     ECloseType.Simple))
+                                    AnimationFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.readfromtagexpressionrange,
+                                                                                    ECloseType.Simple))
+                                Case TypeConstants.constantExpressionRange
+                                    AnimationFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.constantexpressionrange,
+                                                                                     ECloseType.Simple))
+                                    AnimationFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.constantexpressionrange,
+                                                                                    ECloseType.Simple))
+                                Case TypeConstants.defaultExpressionRange
+                                    AnimationFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.defaultexpressionrange,
+                                                                                     ECloseType.Simple))
+                                    AnimationFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.defaultexpressionrange,
+                                                                                    ECloseType.Simple))
                                 Case Else
                                     If subp.type Like TypeConstants.Animate & "*" Then
                                         If FirstAnimationFound = False Then
@@ -2524,6 +2684,38 @@ Public Class Form1
                                         End If
                                         Dim Addstr As String = GetAddStrByAnimationType(sublist.type)
                                         Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                        If SelectEcloseType = ECloseType.Complex Then
+                                            ' Store the name of the animation tag so we can close it later
+                                            ' Also check if the tag to store has changed so we can close previous tags
+                                            If Not TagToClose = "" Then
+                                                ' case when closing tag already exists
+                                                If TagToClose = subp.type Then
+                                                    ' Do nothing because this is the same type as before, it will be closed at the end
+                                                    ' Of the main loop
+                                                Else
+                                                    ' It is a different type, close out the old one and start a new tag
+                                                    AnimationFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    AnimationFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    TagToClose = subp.type
+                                                    AnimationFileListLeft.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                    AnimationFileListRight.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                End If
+                                            Else
+                                                ' tagtoclose not set yet so update it with current type
+                                                TagToClose = subp.type
+                                            End If
+                                        Else
+                                            ' Upon encountering a simple type check if a previous complex type needs closed first
+                                            If Not TagToClose = "" Then
+                                                ' a previous tag needs closed first
+                                                AnimationFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                AnimationFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                TagToClose = "" ' this lets us know on the next loop that nothing requires closing
+                                            Else
+                                                ' Do nothing
+                                                ' no tags opened to be closed and this is a simple type so just deal with it normally
+                                            End If
+                                        End If
                                         AnimationFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.animate, TestCount, Addstr))
                                         AnimationFileListLeft.Add(CreateXMLObjectByDefinition(subp,
                                                                                               sparam,
@@ -2550,13 +2742,18 @@ Public Class Form1
                         Next
                         If FirstAnimationFound Then
                             If Not AnimationsClosed Then
-                                If FirstColorFound Then
-                                    If Not ColorsClosed Then
-                                        ' close off the animatecolor block
-                                        AnimationFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
-                                        AnimationFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
-                                        ColorsClosed = True
-                                    End If
+                                'If FirstColorFound Then
+                                '    If Not ColorsClosed Then
+                                '        ' close off the animatecolor block
+                                '        AnimationFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                '        AnimationFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                '        ColorsClosed = True
+                                '    End If
+                                'End If
+                                If Not TagToClose = "" Then
+                                    AnimationFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    AnimationFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    TagToClose = ""
                                 End If
                                 ' Add lines here to close off the animation objects
                                 AnimationFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
@@ -2622,6 +2819,431 @@ Public Class Form1
             WriteOutputFile(AnimationFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_animate.xml"))
             WriteOutputFile(AnimationFileListRight, GetPathToLocalFile("Output", FnameVar & "R_animate.xml"))
             WriteOutputFile(AnimationFileCSV, GetPathToLocalFile("Output", FnameVar & "animate.csv"))
+
+
+
+            MsgBox("")
+
+        End If
+
+#End Region
+
+#Region "Animations Expression Range  List Generation"
+        Dim ExpressionRangeType As String = ""
+        ' Check if this code block should run
+        If MainObjectList.sList IsNot Nothing Then
+            For Each itm As subparam In MainObjectList.sList.lSubParamList
+                Select Case True
+                    ' Disable default type as this contains no testable parameters
+                    'Case itm.type = TypeConstants.defaultExpressionRange
+                    '    Type_ExpressionRange_Exists = True
+                    Case itm.type = TypeConstants.readFromTagExpressionRange
+                        Type_ExpressionRange_Exists = True
+                        ExpressionRangeType = "readfromtag"
+                    Case itm.type = TypeConstants.constantExpressionRange
+                        Type_ExpressionRange_Exists = True
+                        ExpressionRangeType = "constant"
+                End Select
+            Next
+        End If
+
+        Dim SpecialCaseAnimationMessage As String = ""
+        SpecialCaseAnimationMessage = InputBox("Enter the name of the object animation type message as it will appear" & vbCrLf &
+                                              "in the test CSV for expression range animations", "Special case message string req", "")
+
+
+        If Type_ExpressionRange_Exists Then
+            ' Generate file content for the main parameter list
+            Dim ExpressionRangeFileListLeft As List(Of String) = New List(Of String)
+            Dim ExpressionRangeFileListRight As List(Of String) = New List(Of String)
+            Dim ExpressionRangeFileCSV As List(Of String) = New List(Of String)
+            TestCount = 1
+            FirstConnectionFound = False
+            FirstCaptionFound = False ' Added to ensure only the first caption type gets processed when dealing with mutlistate objects
+            FirstStateFound = False ' Reset the value here as it might still be set from the previous code block
+            StateCount = 0
+            CaptionCount = 0
+            ThresholdCount = 0
+            FirstAnimationFound = 0
+            AnimationsClosed = False
+            Dim ThresholdMask(10) As Boolean
+            Dim ThresholdInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.Threshold)
+
+            If MainObjectList.sList IsNot Nothing Then
+                OType = ECloseType.Complex
+            Else
+                OType = ECloseType.Simple
+            End If
+
+            ' Initialise the left and right file lists with the header content
+            For Each itm As String In HeaderList
+                ExpressionRangeFileListLeft.Add(itm)
+                ExpressionRangeFileListRight.Add(itm)
+            Next
+
+            ' Initialise the CSV test definition file list
+            ExpressionRangeFileCSV.Add("Test number,Property,Left,Right")
+
+            ' Loop through the test generation process for as many caption test masks are active
+            For Each sublist As subparam In MainObjectList.sList.lSubParamList
+                If sublist.type Like "*ExpressionRange" Then
+                    ' This object has an animation sub object type so generate an output file for it
+                    For Each sparam As Param In sublist.subParList
+                        ' Generate the main objects data with only left cases
+                        ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+                        ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
+
+                        For Each subp As subparam In MainObjectList.sList.lSubParamList
+                            Select Case subp.type
+                                Case TypeConstants.Data
+                                    ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                    ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.data,
+                                                                                             ECloseType.Simple))
+                                Case TypeConstants.Threshold
+                                    ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.threshold,
+                                                                                             ECloseType.Simple))
+                                    ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.threshold,
+                                                                                                 ECloseType.Simple))
+                                    ThresholdCount += 1
+
+                                Case TypeConstants.caption
+                                    ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                    ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+
+                                    CaptionCount += 1
+                                Case TypeConstants.imageSettings
+
+                                    ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+
+                                    ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             1,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.image,
+                                                                                             ECloseType.Simple))
+                                Case TypeConstants.connection
+                                    If FirstAnimationFound Then
+                                        If Not AnimationsClosed Then
+                                            If FirstColorFound Then
+                                                'If Not ColorsClosed Then
+                                                '    ' close off the animatecolor block
+                                                '    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                '    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                                '    ColorsClosed = True
+                                                'End If
+                                                If Not TagToClose = "" Then
+                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    TagToClose = ""
+                                                End If
+                                            End If
+                                            ' Add lines here to close off the animation objects
+                                            MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                            MainFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                            AnimationsClosed = True
+                                        End If
+                                    End If
+                                    If FirstStateFound Then
+                                        If Not StatesClosed Then
+                                            ' Close off the previous state before starting a connection block
+                                            ExpressionRangeFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                            ExpressionRangeFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                            ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                            ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                                            StatesClosed = True
+                                        End If
+
+                                    End If
+                                    If FirstConnectionFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "<connections>"))
+                                        ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "<connections>"))
+                                        FirstConnectionFound = True
+                                    End If
+                                    ExpressionRangeFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                             EditCase.Left,
+                                                                                             2,
+                                                                                             TestCount,
+                                                                                             ValuePairList,
+                                                                                             ObjectTestClass.caption,
+                                                                                             ECloseType.Simple))
+                                    ExpressionRangeFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                            EditCase.Left,
+                                                                                            2,
+                                                                                            TestCount,
+                                                                                            ValuePairList,
+                                                                                            ObjectTestClass.caption,
+                                                                                            ECloseType.Simple))
+                                Case TypeConstants.state
+                                    If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
+                                        ' if this is a subsequent state found after the first then close off the previous state
+                                        ExpressionRangeFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                        ExpressionRangeFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                    End If
+                                    If FirstStateFound = False Then
+                                        ' Add an additional line here for the connection xml configuration on the first time only
+                                        ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "<states>"))
+                                        ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "<states>"))
+                                        FirstStateFound = True
+                                    End If
+                                    ExpressionRangeFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         2,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.state,
+                                                                                         ECloseType.Complex))
+                                    ExpressionRangeFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                        EditCase.Left,
+                                                                                        2,
+                                                                                        TestCount,
+                                                                                        ValuePairList,
+                                                                                        ObjectTestClass.state,
+                                                                                        ECloseType.Complex))
+                                    StateCount += 1
+                                Case TypeConstants.Color
+                                    If FirstColorFound = False Then
+                                        FirstColorFound = True
+                                    End If
+                                    ExpressionRangeFileListLeft.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                     EditCase.Left,
+                                                                                     2,
+                                                                                     TestCount,
+                                                                                     ValuePairList,
+                                                                                     ObjectTestClass.color,
+                                                                                     ECloseType.Simple))
+                                    ExpressionRangeFileListRight.Add(CreateXMLConnectionObjectByDefinition(subp,
+                                                                                    EditCase.Left,
+                                                                                    2,
+                                                                                    TestCount,
+                                                                                    ValuePairList,
+                                                                                    ObjectTestClass.color,
+                                                                                    ECloseType.Simple))
+                                Case TypeConstants.readFromTagExpressionRange
+                                    Dim addstr As String = GetAddStrByAnimationType(sublist.type)
+                                    addstr = SpecialCaseAnimationMessage + addstr
+                                    ExpressionRangeFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.readfromtagexpressionrange, TestCount, addstr))
+                                    ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                  sparam,
+                                                                                                  EditCase.Left,
+                                                                                                  1,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.readfromtagexpressionrange,
+                                                                                                  ECloseType.Simple))
+                                    ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                  sparam,
+                                                                                                  EditCase.Right,
+                                                                                                  1,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.readfromtagexpressionrange,
+                                                                                                  ECloseType.Simple))
+                                Case TypeConstants.constantExpressionRange
+                                    Dim addstr As String = GetAddStrByAnimationType(sublist.type)
+                                    addstr = SpecialCaseAnimationMessage + addstr
+                                    ExpressionRangeFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.constantexpressionrange, TestCount, addstr))
+                                    ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                  sparam,
+                                                                                                  EditCase.Left,
+                                                                                                  1,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.constantexpressionrange,
+                                                                                                  ECloseType.Simple))
+                                    ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                  sparam,
+                                                                                                  EditCase.Right,
+                                                                                                  1,
+                                                                                                  TestCount,
+                                                                                                  ValuePairList,
+                                                                                                  ObjectTestClass.constantexpressionrange,
+                                                                                                  ECloseType.Simple))
+                                Case Else
+                                    If subp.type Like TypeConstants.Animate & "*" Then
+                                        If FirstAnimationFound = False Then
+                                            ' Add an additional line here for the connection xml configuration on the first time only
+                                            ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                                            ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                                            FirstAnimationFound = True
+                                        End If
+                                        Dim Addstr As String = GetAddStrByAnimationType(sublist.type)
+                                        Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                        If SelectEcloseType = ECloseType.Complex Then
+                                            ' Store the name of the animation tag so we can close it later
+                                            ' Also check if the tag to store has changed so we can close previous tags
+                                            If Not TagToClose = "" Then
+                                                ' case when closing tag already exists
+                                                If TagToClose = subp.type Then
+                                                    ' Do nothing because this is the same type as before, it will be closed at the end
+                                                    ' Of the main loop
+                                                Else
+                                                    ' It is a different type, close out the old one and start a new tag
+                                                    ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    TagToClose = subp.type
+                                                    ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                    ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                End If
+                                            Else
+                                                ' tagtoclose not set yet so update it with current type
+                                                TagToClose = subp.type
+                                            End If
+                                        Else
+                                            ' Upon encountering a simple type check if a previous complex type needs closed first
+                                            If Not TagToClose = "" Then
+                                                ' a previous tag needs closed first
+                                                ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                TagToClose = "" ' this lets us know on the next loop that nothing requires closing
+                                            Else
+                                                ' Do nothing
+                                                ' no tags opened to be closed and this is a simple type so just deal with it normally
+                                            End If
+                                        End If
+                                        'ExpressionRangeFileCSV.Add(CreateTestCaseByTestNumber(sparam, ValuePairList, ObjectTestClass.animate, TestCount, Addstr))
+                                        ExpressionRangeFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.animate,
+                                                                                                 SelectEcloseType))
+
+                                        ExpressionRangeFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                                 EditCase.Left,
+                                                                                                 1,
+                                                                                                 TestCount,
+                                                                                                 ValuePairList,
+                                                                                                 ObjectTestClass.animate,
+                                                                                                 SelectEcloseType))
+                                    Else
+                                        Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                    End If
+                            End Select
+
+                        Next
+                        If FirstAnimationFound Then
+                            If Not AnimationsClosed Then
+                                'If FirstColorFound Then
+                                '    If Not ColorsClosed Then
+                                '        ' close off the animatecolor block
+                                '        ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
+                                '        ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
+                                '        ColorsClosed = True
+                                '    End If
+                                'End If
+                                If Not TagToClose = "" Then
+                                    ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    TagToClose = ""
+                                End If
+                                ' Add lines here to close off the animation objects
+                                ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                AnimationsClosed = True
+                            End If
+                        End If
+                        FirstAnimationFound = False
+                        AnimationsClosed = False
+                        ColorsClosed = False
+                        FirstColorFound = False
+                        If FirstStateFound Then
+                            If Not StatesClosed Then
+                                ' handle the case when no connection block is present and the state blocks need closed
+                                ExpressionRangeFileListLeft.Add(AddWhiteSpace(2, "</state>"))
+                                ExpressionRangeFileListRight.Add(AddWhiteSpace(2, "</state>"))
+                                ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</states>"))
+                                ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</states>"))
+                            End If
+                            StatesClosed = False
+                            FirstStateFound = False
+                            StateCount = 0
+                        End If
+                        If FirstConnectionFound Then
+                            ' We know at least 1 connection has been defined and so we must close off the connections xml object group
+                            ' We do this at the end of the sub group iteration because we know by observation of the ME software
+                            ' XML object creation that connections always go at the end
+                            ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</connections>"))
+                            ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</connections>"))
+                            FirstConnectionFound = False
+                        End If
+                        CaptionCount = 0
+                        ThresholdCount = 0
+
+                        ' Close off this XML object
+                        If OType = ECloseType.Complex Then
+                            ' Requires complex object closure
+                            ExpressionRangeFileListLeft.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                            ExpressionRangeFileListRight.Add(AddWhiteSpace(0, "</" & MainObjectList.type & ">"))
+                        End If
+                        TestCount += 1
+                        FirstCaptionFound = False
+                    Next
+                    ' This exit for is removed as we want to generate content for all animation type objects found in the test
+                    'Exit For ' added to avoid processing all captions when multiple instances exist as part of state sub objects
+                End If
+            Next
+
+
+
+            ' Close off the files with the footer
+            For Each itm As String In FooterList
+                ExpressionRangeFileListLeft.Add(itm)
+                ExpressionRangeFileListRight.Add(itm)
+            Next
+
+            'Format output file contents prior to writing
+            FormatXMLFile(ExpressionRangeFileListLeft)
+            FormatXMLFile(ExpressionRangeFileListRight)
+
+            'Dim FnameVar As String = InputBox("Enter Output file name", "")
+
+            ' Use variable names here to allow for output of different file names for other test types
+            WriteOutputFile(ExpressionRangeFileListLeft, GetPathToLocalFile("Output", FnameVar & "L_animate" & ExpressionRangeType & ".xml"))
+            WriteOutputFile(ExpressionRangeFileListRight, GetPathToLocalFile("Output", FnameVar & "R_animate" & ExpressionRangeType & ".xml"))
+            WriteOutputFile(ExpressionRangeFileCSV, GetPathToLocalFile("Output", FnameVar & "animate" & ExpressionRangeType & ".csv"))
 
 
 
@@ -3270,6 +3892,8 @@ Public Class Form1
                 Return ECloseType.Simple
             Case "animateColor"
                 Return ECloseType.Complex
+            Case "animateFill"
+                Return ECloseType.Complex
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ECloseType.Simple
@@ -3282,7 +3906,15 @@ Public Class Form1
                 Return "Visibility-"
             Case "animateColor"
                 Return "Color-"
+            Case "animateFill"
+                Return "Fill-"
             Case "color"
+            Case "readFromTagExpressionRange"
+                Return "Item "
+            Case "constantExpressionRange"
+                Return "Item "
+            Case "defaultExpressionRange"
+                Return ""
                 Return "Animate Color Item:"
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
@@ -4473,6 +5105,9 @@ Public Class TypeConstants
     Public Const Animation As String = "animation"
     Public Const Animate As String = "animate"
     Public Const Color As String = "color"
+    Public Const readFromTagExpressionRange As String = "readFromTagExpressionRange"
+    Public Const constantExpressionRange As String = "constantExpressionRange"
+    Public Const defaultExpressionRange As String = "defaultExpressionRange"
 End Class
 
 Public Enum EditCase
@@ -4494,6 +5129,10 @@ Public Class ObjectTestClass
     Public Const data As String = "data"
     Public Const animate As String = "animate"
     Public Const color As String = "color"
+    Public Const readfromtagexpressionrange As String = "readFromTagExpressionRange"
+    Public Const constantexpressionrange As String = "constantExpressionRange"
+    Public Const defaultexpressionrange As String = "defaultExpressionRange"
+
 End Class
 
 

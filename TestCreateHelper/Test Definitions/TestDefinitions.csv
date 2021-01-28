@@ -332,3 +332,11 @@ color,fillEndColor,white,black
 color,fillGradientStop,50,40
 color,fillGradientDirection,gradientDirectionHorizontal,gradientDirectionVertical
 color,fillGradientShadingStyle,gradientHorizontalFromRight,gradientVerticalFromTop
+animate,fillMin,0,1
+animate,fillMax,100,101
+animate,fillDirection,up,down
+animate,insideOnly,FALSE,TRUE
+readFromTagExpressionRange,minTag,mintag,mintags
+readFromTagExpressionRange,maxTag,maxtag,maxtags
+constantExpressionRange,min,1,2
+constantExpressionRange,max,100,101

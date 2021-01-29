@@ -352,3 +352,7 @@ animate,verticalChangeMax,100,101
 animate,rotationMin,0,1
 animate,rotationMax,100,101
 animate,centerOfRotation,middleCenter,middleLeft
+animate,horizontalOffsetMin,0,1
+animate,horizontalOffsetMax,100,101
+animate,verticalOffsetMin,0,1
+animate,verticalOffsetMax,100,101

@@ -3906,6 +3906,10 @@ Public Class Form1
                 Return ECloseType.Complex
             Case "animateHyperlink"
                 Return ECloseType.Simple
+            Case "animateHorizontalSlider"
+                Return ECloseType.Complex
+            Case "animateVerticalSlider"
+                Return ECloseType.Complex
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ECloseType.Simple
@@ -3940,6 +3944,10 @@ Public Class Form1
                 Return "Rotation-"
             Case "animateHyperlink"
                 Return "Hyperlink-"
+            Case "animateHorizontalSlider"
+                Return "HorizontalSlider-"
+            Case "animateVerticalSlider"
+                Return "VerticalSlider-"
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ""

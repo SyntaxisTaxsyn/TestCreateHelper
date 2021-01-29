@@ -3894,6 +3894,10 @@ Public Class Form1
                 Return ECloseType.Complex
             Case "animateFill"
                 Return ECloseType.Complex
+            Case "animateHorizontalPosition"
+                Return ECloseType.Complex
+            Case "animateVerticalPosition"
+                Return ECloseType.Complex
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ECloseType.Simple
@@ -3909,13 +3913,17 @@ Public Class Form1
             Case "animateFill"
                 Return "Fill-"
             Case "color"
+                Return "Animate Color Item:"
             Case "readFromTagExpressionRange"
                 Return "Item "
             Case "constantExpressionRange"
                 Return "Item "
             Case "defaultExpressionRange"
                 Return ""
-                Return "Animate Color Item:"
+            Case "animateHorizontalPosition"
+                Return "HorizontalPosition-"
+            Case "animateVerticalPosition"
+                Return "VerticalPosition-"
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ""

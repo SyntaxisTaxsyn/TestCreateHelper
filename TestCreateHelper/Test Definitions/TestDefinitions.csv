@@ -340,3 +340,5 @@ readFromTagExpressionRange,minTag,mintag,mintags
 readFromTagExpressionRange,maxTag,maxtag,maxtags
 constantExpressionRange,min,1,2
 constantExpressionRange,max,100,101
+animate,horizontalOffsetMin,1,2
+animate,horizontalOffsetMax,100,101

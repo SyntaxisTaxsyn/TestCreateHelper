@@ -379,7 +379,7 @@ Public Class Form1
         Dim Type_State_Exists As Boolean = False
         Dim Type_ActiveXData_Exists As Boolean
         Dim Type_Animation_Exists As Boolean = False
-        Dim Type_ExpressionRange_Exists As Boolean = True
+        Dim Type_ExpressionRange_Exists As Boolean = False
         Dim Type_Color_Exists As Boolean = False
         Dim StateCount As Integer = 0
         Dim CaptionCount As Integer = 0
@@ -2973,14 +2973,14 @@ Public Class Form1
                                                 '    ColorsClosed = True
                                                 'End If
                                                 If Not TagToClose = "" Then
-                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
-                                                    MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
                                                     TagToClose = ""
                                                 End If
                                             End If
                                             ' Add lines here to close off the animation objects
-                                            MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
-                                            MainFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                            ExpressionRangeFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                            ExpressionRangeFileListRight.Add(AddWhiteSpace(1, "</animations>"))
                                             AnimationsClosed = True
                                         End If
                                     End If
@@ -3904,6 +3904,8 @@ Public Class Form1
                 Return ECloseType.Complex
             Case "animateRotation"
                 Return ECloseType.Complex
+            Case "animateHyperlink"
+                Return ECloseType.Simple
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ECloseType.Simple
@@ -3936,6 +3938,8 @@ Public Class Form1
                 Return "Height-"
             Case "animateRotation"
                 Return "Rotation-"
+            Case "animateHyperlink"
+                Return "Hyperlink-"
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ""

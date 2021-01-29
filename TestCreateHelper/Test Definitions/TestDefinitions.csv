@@ -344,3 +344,8 @@ animate,horizontalOffsetMin,1,2
 animate,horizontalOffsetMax,100,101
 animate,verticalOffsetMin,1,2
 animate,verticalOffsetMax,100,101
+animate,horizontalChangeMin,100,101
+animate,horizontalChangeMax,100,101
+animate,anchor,middle,top
+animate,verticalChangeMin,100,101
+animate,verticalChangeMax,100,101

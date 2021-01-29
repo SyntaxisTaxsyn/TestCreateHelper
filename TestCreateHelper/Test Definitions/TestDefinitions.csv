@@ -349,3 +349,6 @@ animate,horizontalChangeMax,100,101
 animate,anchor,middle,top
 animate,verticalChangeMin,100,101
 animate,verticalChangeMax,100,101
+animate,rotationMin,0,1
+animate,rotationMax,100,101
+animate,centerOfRotation,middleCenter,middleLeft

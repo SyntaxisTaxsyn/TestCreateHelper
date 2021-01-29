@@ -3902,6 +3902,8 @@ Public Class Form1
                 Return ECloseType.Complex
             Case "animateHeight"
                 Return ECloseType.Complex
+            Case "animateRotation"
+                Return ECloseType.Complex
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ECloseType.Simple
@@ -3932,6 +3934,8 @@ Public Class Form1
                 Return "Width-"
             Case "animateHeight"
                 Return "Height-"
+            Case "animateRotation"
+                Return "Rotation-"
             Case Else
                 Throw New Exception("Animation type not handled, please add manually and retry")
                 Return ""

@@ -688,14 +688,6 @@ Public Class Form1
                         Next
                         If FirstAnimationFound Then
                             If Not AnimationsClosed Then
-                                'If FirstColorFound Then
-                                '    If Not ColorsClosed Then
-                                '        ' close off the animatecolor block
-                                '        MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
-                                '        MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
-                                '        ColorsClosed = True
-                                '    End If
-                                'End If
                                 If Not TagToClose = "" Then
                                     MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
                                     MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
@@ -931,6 +923,19 @@ Public Class Form1
                                             ImageCount += 1
 
                                         Case TypeConstants.connection
+                                            If FirstAnimationFound Then
+                                                If Not AnimationsClosed Then
+                                                    If Not TagToClose = "" Then
+                                                        ImageFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        ImageFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        TagToClose = ""
+                                                    End If
+                                                    ' Add lines here to close off the animation objects
+                                                    ImageFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                                    ImageFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                                    AnimationsClosed = True
+                                                End If
+                                            End If
                                             If FirstStateFound Then
                                                 ' Close off the previous state before starting a connection block
                                                 ImageFileListLeft.Add(AddWhiteSpace(2, "</state>"))
@@ -987,10 +992,84 @@ Public Class Form1
                                                                                         ECloseType.Complex))
                                             StateCount += 1
                                         Case Else
-                                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                            If subp.type Like TypeConstants.Animate & "*" Then
+                                                If FirstAnimationFound = False Then
+                                                    ' Add an additional line here for the connection xml configuration on the first time only
+                                                    ImageFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                                                    ImageFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                                                    FirstAnimationFound = True
+                                                End If
+                                                Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                                If SelectEcloseType = ECloseType.Complex Then
+                                                    ' Store the name of the animation tag so we can close it later
+                                                    ' Also check if the tag to store has changed so we can close previous tags
+                                                    If Not TagToClose = "" Then
+                                                        ' case when closing tag already exists
+                                                        If TagToClose = subp.type Then
+                                                            ' Do nothing because this is the same type as before, it will be closed at the end
+                                                            ' Of the main loop
+                                                        Else
+                                                            ' It is a different type, close out the old one and start a new tag
+                                                            ImageFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                            ImageFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                            TagToClose = subp.type
+                                                            ImageFileListLeft.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                            ImageFileListRight.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                        End If
+                                                    Else
+                                                        ' tagtoclose not set yet so update it with current type
+                                                        TagToClose = subp.type
+                                                    End If
+                                                Else
+                                                    ' Upon encountering a simple type check if a previous complex type needs closed first
+                                                    If Not TagToClose = "" Then
+                                                        ' a previous tag needs closed first
+                                                        ImageFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        ImageFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        TagToClose = "" ' this lets us know on the next loop that nothing requires closing
+                                                    Else
+                                                        ' Do nothing
+                                                        ' no tags opened to be closed and this is a simple type so just deal with it normally
+                                                    End If
+                                                End If
+                                                ImageFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                                ImageFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                            Else
+                                                Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                            End If
                                     End Select
 
                                 Next
+                                If FirstAnimationFound Then
+                                    If Not AnimationsClosed Then
+                                        If Not TagToClose = "" Then
+                                            ImageFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                            ImageFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                            TagToClose = ""
+                                        End If
+                                        ' Add lines here to close off the animation objects
+                                        ImageFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                        ImageFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                        AnimationsClosed = True
+                                    End If
+                                End If
+
+                                ' Reset first found and closed tag monitors here
+                                FirstAnimationFound = False
+                                AnimationsClosed = False
+
                                 If FirstStateFound Then
                                     If Not StatesClosed Then
                                         ' handle the case when no connection block is present and the state blocks need closed
@@ -1230,6 +1309,19 @@ Public Class Form1
                                                                                              ObjectTestClass.image,
                                                                                              ECloseType.Simple))
                                         Case TypeConstants.connection
+                                            If FirstAnimationFound Then
+                                                If Not AnimationsClosed Then
+                                                    If Not TagToClose = "" Then
+                                                        CaptionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        CaptionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        TagToClose = ""
+                                                    End If
+                                                    ' Add lines here to close off the animation objects
+                                                    CaptionFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                                    CaptionFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                                    AnimationsClosed = True
+                                                End If
+                                            End If
                                             If FirstStateFound Then
                                                 If Not StatesClosed Then
                                                     ' Close off the previous state before starting a connection block
@@ -1289,10 +1381,84 @@ Public Class Form1
                                                                                         ECloseType.Complex))
                                             StateCount += 1
                                         Case Else
-                                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                            If subp.type Like TypeConstants.Animate & "*" Then
+                                                If FirstAnimationFound = False Then
+                                                    ' Add an additional line here for the connection xml configuration on the first time only
+                                                    CaptionFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                                                    CaptionFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                                                    FirstAnimationFound = True
+                                                End If
+                                                Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                                If SelectEcloseType = ECloseType.Complex Then
+                                                    ' Store the name of the animation tag so we can close it later
+                                                    ' Also check if the tag to store has changed so we can close previous tags
+                                                    If Not TagToClose = "" Then
+                                                        ' case when closing tag already exists
+                                                        If TagToClose = subp.type Then
+                                                            ' Do nothing because this is the same type as before, it will be closed at the end
+                                                            ' Of the main loop
+                                                        Else
+                                                            ' It is a different type, close out the old one and start a new tag
+                                                            CaptionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                            CaptionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                            TagToClose = subp.type
+                                                            CaptionFileListLeft.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                            CaptionFileListRight.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                        End If
+                                                    Else
+                                                        ' tagtoclose not set yet so update it with current type
+                                                        TagToClose = subp.type
+                                                    End If
+                                                Else
+                                                    ' Upon encountering a simple type check if a previous complex type needs closed first
+                                                    If Not TagToClose = "" Then
+                                                        ' a previous tag needs closed first
+                                                        CaptionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        CaptionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        TagToClose = "" ' this lets us know on the next loop that nothing requires closing
+                                                    Else
+                                                        ' Do nothing
+                                                        ' no tags opened to be closed and this is a simple type so just deal with it normally
+                                                    End If
+                                                End If
+                                                CaptionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                                CaptionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                            Else
+                                                Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                            End If
                                     End Select
 
                                 Next
+                                If FirstAnimationFound Then
+                                    If Not AnimationsClosed Then
+                                        If Not TagToClose = "" Then
+                                            CaptionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                            CaptionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                            TagToClose = ""
+                                        End If
+                                        ' Add lines here to close off the animation objects
+                                        CaptionFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                        CaptionFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                        AnimationsClosed = True
+                                    End If
+                                End If
+
+                                ' Reset first found and closed tag monitors here
+                                FirstAnimationFound = False
+                                AnimationsClosed = False
+
                                 If FirstStateFound Then
                                     If Not StatesClosed Then
                                         ' handle the case when no connection block is present and the state blocks need closed
@@ -1715,6 +1881,9 @@ Public Class Form1
             Dim ConnectionFileCSV As List(Of String) = New List(Of String)
             TestCount = 1
             FirstConnectionFound = False
+            FirstAnimationFound = False
+            AnimationsClosed = False
+            TagToClose = ""
 
             If MainObjectList.sList IsNot Nothing Then
                 OType = ECloseType.Complex
@@ -1836,6 +2005,19 @@ Public Class Form1
                                                                                          ObjectTestClass.image,
                                                                                          ECloseType.Simple))
                                     Case TypeConstants.connection
+                                        If FirstAnimationFound Then
+                                            If Not AnimationsClosed Then
+                                                If Not TagToClose = "" Then
+                                                    ConnectionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    ConnectionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    TagToClose = ""
+                                                End If
+                                                ' Add lines here to close off the animation objects
+                                                ConnectionFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                                ConnectionFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                                AnimationsClosed = True
+                                            End If
+                                        End If
                                         If FirstStateFound Then
                                             If Not StatesClosed Then
                                                 ' Close off the previous state before starting a connection block
@@ -1892,9 +2074,84 @@ Public Class Form1
                                         End If
 
                                     Case Else
-                                        Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                        If subp.type Like TypeConstants.Animate & "*" Then
+                                            If FirstAnimationFound = False Then
+                                                ' Add an additional line here for the connection xml configuration on the first time only
+                                                ConnectionFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                                                ConnectionFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                                                FirstAnimationFound = True
+                                            End If
+                                            Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                                            If SelectEcloseType = ECloseType.Complex Then
+                                                ' Store the name of the animation tag so we can close it later
+                                                ' Also check if the tag to store has changed so we can close previous tags
+                                                If Not TagToClose = "" Then
+                                                    ' case when closing tag already exists
+                                                    If TagToClose = subp.type Then
+                                                        ' Do nothing because this is the same type as before, it will be closed at the end
+                                                        ' Of the main loop
+                                                    Else
+                                                        ' It is a different type, close out the old one and start a new tag
+                                                        ConnectionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        ConnectionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                        TagToClose = subp.type
+                                                        ConnectionFileListLeft.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                        ConnectionFileListRight.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                                    End If
+                                                Else
+                                                    ' tagtoclose not set yet so update it with current type
+                                                    TagToClose = subp.type
+                                                End If
+                                            Else
+                                                ' Upon encountering a simple type check if a previous complex type needs closed first
+                                                If Not TagToClose = "" Then
+                                                    ' a previous tag needs closed first
+                                                    ConnectionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    ConnectionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    TagToClose = "" ' this lets us know on the next loop that nothing requires closing
+                                                Else
+                                                    ' Do nothing
+                                                    ' no tags opened to be closed and this is a simple type so just deal with it normally
+                                                End If
+                                            End If
+                                            ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                            ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                                        Else
+                                            Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                                        End If
                                 End Select
                             Next
+                            If FirstAnimationFound Then
+                                If Not AnimationsClosed Then
+                                    If Not TagToClose = "" Then
+                                        ConnectionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                        ConnectionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                        TagToClose = ""
+                                    End If
+                                    ' Add lines here to close off the animation objects
+                                    ConnectionFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                    ConnectionFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                    AnimationsClosed = True
+                                End If
+                            End If
+
+                            ' Reset first found and closed tag monitors here
+                            FirstAnimationFound = False
+                            AnimationsClosed = False
+                            TagToClose = ""
+
                             If FirstStateFound Then
                                 If Not StatesClosed Then
                                     ' handle the case when no connection block is present and the state blocks need closed
@@ -2434,6 +2691,11 @@ Public Class Form1
             CaptionCount = 0
             ThresholdCount = 0
             FirstAnimationFound = 0
+            FirstAnimationFound = False
+            AnimationsClosed = False
+            ColorsClosed = False
+            FirstColorFound = False
+            TagToClose = ""
             AnimationsClosed = False
             Dim ThresholdMask(10) As Boolean
             Dim ThresholdInstCount As Integer = CountObjectInstance(MainObjectList, TypeConstants.Threshold)
@@ -2535,21 +2797,15 @@ Public Class Form1
                                     If FirstAnimationFound Then
                                         If Not AnimationsClosed Then
                                             If FirstColorFound Then
-                                                'If Not ColorsClosed Then
-                                                '    ' close off the animatecolor block
-                                                '    MainFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
-                                                '    MainFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
-                                                '    ColorsClosed = True
-                                                'End If
                                                 If Not TagToClose = "" Then
-                                                    MainFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
-                                                    MainFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    AnimationFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                                    AnimationFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
                                                     TagToClose = ""
                                                 End If
                                             End If
                                             ' Add lines here to close off the animation objects
-                                            MainFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
-                                            MainFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                                            AnimationFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                                            AnimationFileListRight.Add(AddWhiteSpace(1, "</animations>"))
                                             AnimationsClosed = True
                                         End If
                                     End If
@@ -2742,14 +2998,6 @@ Public Class Form1
                         Next
                         If FirstAnimationFound Then
                             If Not AnimationsClosed Then
-                                'If FirstColorFound Then
-                                '    If Not ColorsClosed Then
-                                '        ' close off the animatecolor block
-                                '        AnimationFileListLeft.Add(AddWhiteSpace(1, "</animateColor>"))
-                                '        AnimationFileListRight.Add(AddWhiteSpace(1, "</animateColor>"))
-                                '        ColorsClosed = True
-                                '    End If
-                                'End If
                                 If Not TagToClose = "" Then
                                     AnimationFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
                                     AnimationFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
@@ -2765,6 +3013,7 @@ Public Class Form1
                         AnimationsClosed = False
                         ColorsClosed = False
                         FirstColorFound = False
+                        TagToClose = ""
                         If FirstStateFound Then
                             If Not StatesClosed Then
                                 ' handle the case when no connection block is present and the state blocks need closed
@@ -4070,6 +4319,7 @@ Public Class Form1
         Dim StatesClosed As Boolean = False
         Dim FirstAnimationFound As Boolean = False
         Dim AnimationsClosed As Boolean = False
+        Dim TagToClose As String = ""
 
         ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
         ConnectionFileListRight.Add(CreateXMLObjectByDefinition(MainObjectList, MainObjectList.pList.Item(1), EditCase.Left, 0, TestCount, ValuePairList, "", OType))
@@ -4133,6 +4383,19 @@ Public Class Form1
                                                                                      ECloseType.Simple))
                 Case TypeConstants.connection
                     ' Close any open states and do not process the connection
+                    If FirstAnimationFound Then
+                        If Not AnimationsClosed Then
+                            If Not TagToClose = "" Then
+                                ConnectionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                ConnectionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                TagToClose = ""
+                            End If
+                            ' Add lines here to close off the animation objects
+                            ConnectionFileListLeft.Add(AddWhiteSpace(1, "</animations>"))
+                            ConnectionFileListRight.Add(AddWhiteSpace(1, "</animations>"))
+                            AnimationsClosed = True
+                        End If
+                    End If
                     If FirstStateFound Then ' deliberately placed before the first state found detector so it will only trigger on subsequent states
                         ' if this is a subsequent state found after the first then close off the previous state
                         If Not StatesClosed Then
@@ -4210,7 +4473,64 @@ Public Class Form1
                                                                                      ECloseType.Simple))
 
                 Case Else
-                    Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                    If subp.type Like TypeConstants.Animate & "*" Then
+                        If FirstAnimationFound = False Then
+                            ' Add an additional line here for the connection xml configuration on the first time only
+                            ConnectionFileListLeft.Add(AddWhiteSpace(1, "<animations>"))
+                            ConnectionFileListRight.Add(AddWhiteSpace(1, "<animations>"))
+                            FirstAnimationFound = True
+                        End If
+                        Dim SelectEcloseType As ECloseType = GetAnimationEcloseType(subp.type)
+                        If SelectEcloseType = ECloseType.Complex Then
+                            ' Store the name of the animation tag so we can close it later
+                            ' Also check if the tag to store has changed so we can close previous tags
+                            If Not TagToClose = "" Then
+                                ' case when closing tag already exists
+                                If TagToClose = subp.type Then
+                                    ' Do nothing because this is the same type as before, it will be closed at the end
+                                    ' Of the main loop
+                                Else
+                                    ' It is a different type, close out the old one and start a new tag
+                                    ConnectionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    ConnectionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                    TagToClose = subp.type
+                                    ConnectionFileListLeft.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                    ConnectionFileListRight.Add(AddWhiteSpace(1, "<" & TagToClose & ">"))
+                                End If
+                            Else
+                                ' tagtoclose not set yet so update it with current type
+                                TagToClose = subp.type
+                            End If
+                        Else
+                            ' Upon encountering a simple type check if a previous complex type needs closed first
+                            If Not TagToClose = "" Then
+                                ' a previous tag needs closed first
+                                ConnectionFileListLeft.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                ConnectionFileListRight.Add(AddWhiteSpace(1, "</" & TagToClose & ">"))
+                                TagToClose = "" ' this lets us know on the next loop that nothing requires closing
+                            Else
+                                ' Do nothing
+                                ' no tags opened to be closed and this is a simple type so just deal with it normally
+                            End If
+                        End If
+                        ConnectionFileListLeft.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                        ConnectionFileListRight.Add(CreateXMLObjectByDefinition(subp,
+                                                                                         EditCase.Left,
+                                                                                         1,
+                                                                                         TestCount,
+                                                                                         ValuePairList,
+                                                                                         ObjectTestClass.animate,
+                                                                                         SelectEcloseType))
+                    Else
+                        Throw New Exception("This type behaviour is not defined, please add it manually and try again")
+                    End If
+
             End Select
         Next
 
